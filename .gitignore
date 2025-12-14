@@ -1,0 +1,67 @@
+# --- Compilación ESP-IDF (CRÍTICO) ---
+build/
+sdkconfig.old
+dependencies.lock
+
+# --- Dependencias descargadas automáticamente ---
+managed_components/
+
+# --- Archivos de Sistema y Editor ---
+.vscode/
+.idea/
+.DS_Store
+desktop.ini
+Desktop.ini
+
+# --- Basura de PlatformIO (Por si acaso) ---
+.pio/
+lib/TFT_eSPI
+
+# --- Archivos de Respaldo y Temporales ---
+autosave/
+backup/
+*_backup*
+*.bak
+
+# --- Tu Proyecto Específico (EEZ Studio y otros) ---
+ui_v(Bk)/
+img_v(Bk)/
+ico/
+x.Carpeta Modelo v(EEZ)/
+*.eez-project-ui-state
+*driver-libraries/eez-framework/*
+
+# --- Tokens y Secretos (Seguridad) ---
+token
+token.cpp
+token.h
+
+# --- Versiones antiguas ---
+*-v(2024*
+*-v(HMS)*
+
+# --- G2EJ-IC ---
+# --- PlatFormIO ---
+.pio
+.vscode
+ui_v(Bk)
+img_v(Bk)
+
+# --- ico ---
+ico
+ico/*
+ico/*.ico
+ico/*.ini
+desktop.ini
+Desktop.ini
+
+
+autosave
+backup
+token
+token.cpp
+token.h
+*-v(2024*
+*-v(HMS)*
+lib/TFT_eSPI
+# --- *.eez-project-ui-state ---

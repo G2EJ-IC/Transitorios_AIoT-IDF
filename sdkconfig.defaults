@@ -1,0 +1,17 @@
+# CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="./partitions/partitions.csv"
+
+# Configuración de Memoria
+CONFIG_ESP32S3_SPIRAM_SUPPORT=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+# Nota: Si falla con OCT (Octal), cambiar a QUAD. La versión Advanced suele ser Octal.
+# CONFIG_SPIRAM_MODE_QUAD=y
+
+# Aumentar la frecuencia de interrupciones de FreeRTOS a 1000Hz (1ms tick)
+CONFIG_FREERTOS_HZ=1000
+
+# Tamaño de Flash (Advanced tiene 16MB)
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# Optimización del Compilador para Rendimiento (Crítico para UI fluida)
+CONFIG_COMPILER_OPTIMIZATION_PERF=y

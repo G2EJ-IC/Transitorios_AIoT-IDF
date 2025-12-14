@@ -1,0 +1,41 @@
+======================================================================
+MÓDULO IO_AIoT (Gestión de Energía y Pantalla)
+======================================================================
+
+DESCRIPCIÓN:
+Este módulo maneja de forma centralizada:
+1. El encendido y apagado del Backlight (Pin 2).
+2. La lógica de suspensión automática (Sleep Mode).
+3. El filtrado de ruido eléctrico del hardware táctil (XPT2046).
+
+INTEGRACIÓN:
+
+1. En 'main_AIoT.c':
+   - Incluir header: #include "IO_AIoT.h"
+   - En app_main(), inicializar: IO_AIoT_Init();
+   - En el bucle for(;;), llamar: IO_Task_Manager();
+
+2. En 'actions.cpp' (Eventos de UI):
+   - Al mover el Slider de brillo:
+     IO_Set_Brillo_Manual(valor_slider);
+   
+   - Al cambiar el DropDown de tiempo:
+     IO_Set_Tiempo_Suspension(indice_seleccionado);
+
+3. En 'ui_update_periodic_task' (Tarea periódica):
+   - IMPORTANTE: Reemplazar la llamada antigua de set_backlight por:
+     IO_Set_Brillo_Manual(get_var_slider_porcentaje());
+   
+   El módulo IO_AIoT es inteligente: si la pantalla está dormida, 
+   ignorará las peticiones de brillo del slider para evitar que 
+   se despierte sola.
+
+LÓGICA INTERNA (ESTADOS):
+- ENCENDIDO: Cuenta el tiempo de inactividad de LVGL.
+- BLOQUEO:   Al apagarse, espera 1.5 segundos IGNORANDO TODO. 
+             Esto evita que el ruido eléctrico la vuelva a prender.
+- DORMIDO:   Espera un toque real para volver a ENCENDIDO.
+
+AUTOR: Ing. Ernesto José Guerrero González.
+FECHA: 2025-12-13
+======================================================================

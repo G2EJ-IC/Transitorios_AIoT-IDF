@@ -1,0 +1,11 @@
+Transitorios_AIoT/
+├── components/          # Tu código modular (Drivers, UI, WiFi)
+├── main/                # Tu código principal (app_main)
+├── build/               # Archivos temporales de compilación
+├── docs/                # <--- AQUÍ VA TU INFORMACIÓN
+│   ├── hardware/        # Aquí guardas el PDF "CrowPanel ESP32..." y esquemáticos
+│   ├── images/          # Fotos del montaje, capturas de pantalla de la UI
+│   ├── datasheets/      # Hojas de datos de sensores o componentes extra
+│   └── architecture/    # Diagramas de flujo o explicación de la lógica
+├── CMakeLists.txt
+└── README.md            # <--- EL ARCHIVO MÁS IMPORTANTE
