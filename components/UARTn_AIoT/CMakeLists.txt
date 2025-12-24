@@ -1,0 +1,11 @@
+idf_component_register(
+    SRCS 
+        src/UARTn_AIoT.cpp
+    INCLUDE_DIRS
+        include
+    PRIV_REQUIRES 
+        driver
+        log
+        esp_common
+        freertos
+)

@@ -1,0 +1,24 @@
+
+Transitorios_AIoT-IDF/
+├── CMakeLists.txt              (Archivo raíz del proyecto)
+├── sdkconfig                   (Configuración del sistema)
+├── components/
+│   └── Configuracion_AIoT/     (Nuevo Componente Único)
+│       ├── CMakeLists.txt
+│       ├── include/
+│       │   └── Display_AIoT.h  (Cabecera de definición)
+│       ├── src/
+│       │   └── Display_AIoT.c  (Lógica del driver NV3047)
+│		└──ui/
+└── main/
+    ├── CMakeLists.txt
+    └── main_AIoT.c             (Main limpio)
+
+
+https://github.com/G2EJ-IC/MCs_Transitorios_AIoT/tree/main/CrowPanel_Display/Transitorios_AIoT-IDF
+
+CrowPanel ESP32 HMI 4.3 inch Display - Basic (Modelo RGB/XPT2046) basado en el microcontrolador ESP32-S3.
+
+
+
+

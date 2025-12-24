@@ -20,6 +20,7 @@ typedef struct _objects_t {
     lv_obj_t *img_izq_pag2_main3_2;
     lv_obj_t *bt_conectado_main3_tab2;
     lv_obj_t *img_der_pag1_main3_2;
+    lv_obj_t *bt_dhms_wi_fi;
     lv_obj_t *img_izq_pag1_main2;
     lv_obj_t *img_der_pag3_main2;
     lv_obj_t *drop_down_suspender;
@@ -54,7 +55,6 @@ typedef struct _objects_t {
     lv_obj_t *ui_lab_mac;
     lv_obj_t *bt_dhms_2;
     lv_obj_t *label_dhms_2;
-    lv_obj_t *bt_dhms_wi_fi;
     lv_obj_t *label_dhms_wi_fi;
     lv_obj_t *obj1;
     lv_obj_t *obj2;

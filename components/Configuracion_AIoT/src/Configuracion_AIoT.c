@@ -22,6 +22,7 @@ static const char *TAG = "Config_AIoT";
 #define MY_DISP_HSYNC   39
 #define MY_DISP_DE      40
 #define MY_DISP_BL      2
+#define NUM_FBS 2 // 1
 
 // TOUCH SPI
 #define MY_TOUCH_HOST   SPI2_HOST
@@ -30,6 +31,14 @@ static const char *TAG = "Config_AIoT";
 #define MY_TOUCH_MISO   13
 #define MY_TOUCH_CS     0   
 #define MY_TOUCH_IRQ    36
+
+// Resolución
+#define PCLK_HZ (7 * 1000 * 1000)  // 7 MHz
+#define H_RES 480
+#define V_RES 272
+
+// Buffer x8 Líneas
+#define BUFFER_LINES 8 // 8 
 
 static esp_lcd_panel_handle_t panel_handle = NULL;
 static lv_display_t *lv_disp = NULL;
@@ -57,7 +66,7 @@ esp_err_t Configuracion_AIoT_Init(void) {
     esp_lcd_rgb_panel_config_t panel_config = {
         .data_width = 16,
         .psram_trans_align = 64,
-        .num_fbs = 1,
+        .num_fbs = NUM_FBS,
         .clk_src = LCD_CLK_SRC_DEFAULT,
         .disp_gpio_num = GPIO_NUM_NC,
         .pclk_gpio_num = MY_DISP_PCLK,
@@ -70,15 +79,15 @@ esp_err_t Configuracion_AIoT_Init(void) {
             GPIO_NUM_48, GPIO_NUM_47, GPIO_NUM_21, GPIO_NUM_14
         },
         .timings = {
-            .pclk_hz = 7 * 1000 * 1000, // 7 MHz
-            .h_res = 480,
-            .v_res = 272,
+            .pclk_hz = PCLK_HZ, // 7 MHz
+            .h_res = H_RES,
+            .v_res = V_RES,
             .hsync_back_porch = 43, .hsync_front_porch = 8, .hsync_pulse_width = 4,
             .vsync_back_porch = 12, .vsync_front_porch = 8, .vsync_pulse_width = 4,
             .flags.pclk_active_neg = 1,
         },
         .flags.fb_in_psram = 1, 
-        .bounce_buffer_size_px = 480 * 8, // Buffer x8 (Estable)
+        .bounce_buffer_size_px = H_RES * BUFFER_LINES, // Buffer x8 (Estable)
     };
 
     ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
@@ -117,12 +126,10 @@ esp_err_t Configuracion_AIoT_Init(void) {
     lv_display_set_user_data(lv_disp, panel_handle);
     lv_display_set_flush_cb(lv_disp, lvgl_flush_cb);
 
-    // Buffer x8 Líneas
-    #define BUFFER_LINES 8 
-    void *buf1 = heap_caps_malloc(480 * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
-    void *buf2 = heap_caps_malloc(480 * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    void *buf1 = heap_caps_malloc(H_RES * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
+    void *buf2 = heap_caps_malloc(H_RES * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
     
-    lv_display_set_buffers(lv_disp, buf1, buf2, 480 * BUFFER_LINES * sizeof(uint16_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
+    lv_display_set_buffers(lv_disp, buf1, buf2, H_RES * BUFFER_LINES * sizeof(uint16_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
 
     // Conectar Touch
     lv_indev = lv_indev_create();

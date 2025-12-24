@@ -3,6 +3,7 @@
 #include "esp_log.h"
 #include "esp_rom_sys.h" // Para esp_rom_delay_us
 #include <string.h>
+#include "esp_timer.h"
 
 // static const char *TAG = "XPT2046";
 
@@ -54,30 +55,34 @@ long map(long x, long in_min, long in_max, long out_min, long out_max) {
 
 void xpt2046_read_cb_lvgl9(lv_indev_t * indev, lv_indev_data_t * data)
 {
-    // 1. LECTURA INICIAL
+    static int64_t t_press_us = 0;
+    static bool pending = false;
+
     if (gpio_get_level(touch_irq_pin) == 0) {
-        
-        // --- ANTI-REBOTE (DEBOUNCE) ---
-        // El ruido eléctrico suele durar microsegundos. Un toque humano dura milisegundos.
-        // Esperamos 5ms y verificamos si sigue presionado.
-        esp_rom_delay_us(5000); 
-        
-        if (gpio_get_level(touch_irq_pin) != 0) {
-            // Falsa alarma (era ruido), salimos indicando que no hay toque
+
+        int64_t now = esp_timer_get_time();
+
+        // Debounce no bloqueante: exige presión estable ~2ms
+        if (!pending) {
+            pending = true;
+            t_press_us = now;
             data->state = LV_INDEV_STATE_RELEASED;
             return;
         }
-        // ------------------------------
+        if ((now - t_press_us) < 2000) {
+            data->state = LV_INDEV_STATE_RELEASED;
+            return;
+        }
 
-        int32_t avg_x = 0;
-        int32_t avg_y = 0;
+        // Ya estable -> leer y promediar
+        int32_t avg_x = 0, avg_y = 0;
         const int samples = 4;
 
         for (int i = 0; i < samples; i++) {
             avg_x += spi_transfer_cmd(CMD_X_READ);
             avg_y += spi_transfer_cmd(CMD_Y_READ);
         }
-        
+
         int32_t cal_x = map(avg_x / samples, 200, 3900, 0, 480);
         int32_t cal_y = map(avg_y / samples, 240, 3800, 0, 272);
 
@@ -89,7 +94,9 @@ void xpt2046_read_cb_lvgl9(lv_indev_t * indev, lv_indev_data_t * data)
         data->point.x = cal_x;
         data->point.y = cal_y;
         data->state = LV_INDEV_STATE_PRESSED;
-    } else {
-        data->state = LV_INDEV_STATE_RELEASED;
+        return;
     }
+
+    pending = false;
+    data->state = LV_INDEV_STATE_RELEASED;
 }

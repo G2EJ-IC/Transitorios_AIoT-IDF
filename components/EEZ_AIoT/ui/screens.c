@@ -24,16 +24,6 @@ static void event_handler_cb_main1_img_der_pag2_main1(lv_event_t *e) {
     }
 }
 
-static void event_handler_cb_main3_main3(lv_event_t *e) {
-    lv_event_code_t event = lv_event_get_code(e);
-    void *flowState = lv_event_get_user_data(e);
-    (void)flowState;
-    
-    if (event == LV_EVENT_PRESSED) {
-        e->user_data = (void *)0;
-    }
-}
-
 static void event_handler_cb_main3_img_izq_pag2_main3_1(lv_event_t *e) {
     lv_event_code_t event = lv_event_get_code(e);
     void *flowState = lv_event_get_user_data(e);
@@ -119,6 +109,17 @@ static void event_handler_cb_main3_img_der_pag1_main3_2(lv_event_t *e) {
     if (event == LV_EVENT_PRESSED) {
         e->user_data = (void *)0;
         flowPropagateValueLVGLEvent(flowState, 29, 0, e);
+    }
+}
+
+static void event_handler_cb_main3_bt_dhms_wi_fi(lv_event_t *e) {
+    lv_event_code_t event = lv_event_get_code(e);
+    void *flowState = lv_event_get_user_data(e);
+    (void)flowState;
+    
+    if (event == LV_EVENT_PRESSED) {
+        e->user_data = (void *)0;
+        action_fn_connec_aio_t(e);
     }
 }
 
@@ -342,7 +343,6 @@ void create_screen_main3() {
     objects.main3 = obj;
     lv_obj_set_pos(obj, 0, 0);
     lv_obj_set_size(obj, 480, 272);
-    lv_obj_add_event_cb(obj, event_handler_cb_main3_main3, LV_EVENT_ALL, flowState);
     {
         lv_obj_t *parent_obj = obj;
         {
@@ -563,7 +563,7 @@ void create_screen_main3() {
                                                     lv_obj_set_pos(obj, 127, 28);
                                                     lv_obj_set_size(obj, 307, 40);
                                                     lv_textarea_set_max_length(obj, 128);
-                                                    lv_textarea_set_text(obj, "(11291104BG397)**397");
+                                                    lv_textarea_set_text(obj, "135797531!$&");
                                                     lv_textarea_set_placeholder_text(obj, "Enter Passwords");
                                                     lv_textarea_set_one_line(obj, false);
                                                     lv_textarea_set_password_mode(obj, true);
@@ -861,6 +861,7 @@ void create_screen_main3() {
                                                     objects.bt_dhms_wi_fi = obj;
                                                     lv_obj_set_pos(obj, 239, 84);
                                                     lv_obj_set_size(obj, 200, 30);
+                                                    lv_obj_add_event_cb(obj, event_handler_cb_main3_bt_dhms_wi_fi, LV_EVENT_ALL, flowState);
                                                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xffff0000), LV_PART_MAIN | LV_STATE_DEFAULT);
                                                     {
                                                         lv_obj_t *parent_obj = obj;
@@ -1297,7 +1298,7 @@ void tick_screen_main2() {
 
 
 static const char *screen_names[] = { "Main1", "Main3", "Main2" };
-static const char *object_names[] = { "main1", "main3", "main2", "img_der_pag2_main1", "img_izq_pag2_main3_1", "bt_connec_wi_fi_main3", "bt_conectado_main3_tab1", "bt_re_scan_wi_fi_main3", "img_der_pag1_main3_1", "img_izq_pag2_main3_2", "bt_conectado_main3_tab2", "img_der_pag1_main3_2", "img_izq_pag1_main2", "img_der_pag3_main2", "drop_down_suspender", "container_main1", "panel_aio_t", "img_ud_fjd_c_58x77", "panel_nombre", "but_img_der_pag2_main1", "obj0", "container_main3", "tab_view_main2", "pag2", "panel02_3", "panel03_4", "label_wi_fi_ssid_pag1", "text_area_ssid", "label_wi_fi_pass_pag1", "text_area_password", "keyboard", "pag3", "panel02_2", "panel03_5", "container_label", "label_red_wi_fi_ssid", "label_direccion_ip", "label_direccion_dns", "label_direccion_mac", "container_resultados", "ui_lab_ssid", "ui_lab_ip", "ui_lab_dns", "ui_lab_mac", "bt_dhms_2", "label_dhms_2", "bt_dhms_wi_fi", "label_dhms_wi_fi", "obj1", "obj2", "obj3", "obj4", "obj5", "obj6", "container_main2", "panel02_1", "slider_porcentaje", "label_slider_porcentaje", "panel03_3", "drop_down", "suspender", "m_todo_de_conecci_n", "drop_down_1", "bt_dhms_1", "label_dhms_1", "obj7", "obj8" };
+static const char *object_names[] = { "main1", "main3", "main2", "img_der_pag2_main1", "img_izq_pag2_main3_1", "bt_connec_wi_fi_main3", "bt_conectado_main3_tab1", "bt_re_scan_wi_fi_main3", "img_der_pag1_main3_1", "img_izq_pag2_main3_2", "bt_conectado_main3_tab2", "img_der_pag1_main3_2", "bt_dhms_wi_fi", "img_izq_pag1_main2", "img_der_pag3_main2", "drop_down_suspender", "container_main1", "panel_aio_t", "img_ud_fjd_c_58x77", "panel_nombre", "but_img_der_pag2_main1", "obj0", "container_main3", "tab_view_main2", "pag2", "panel02_3", "panel03_4", "label_wi_fi_ssid_pag1", "text_area_ssid", "label_wi_fi_pass_pag1", "text_area_password", "keyboard", "pag3", "panel02_2", "panel03_5", "container_label", "label_red_wi_fi_ssid", "label_direccion_ip", "label_direccion_dns", "label_direccion_mac", "container_resultados", "ui_lab_ssid", "ui_lab_ip", "ui_lab_dns", "ui_lab_mac", "bt_dhms_2", "label_dhms_2", "label_dhms_wi_fi", "obj1", "obj2", "obj3", "obj4", "obj5", "obj6", "container_main2", "panel02_1", "slider_porcentaje", "label_slider_porcentaje", "panel03_3", "drop_down", "suspender", "m_todo_de_conecci_n", "drop_down_1", "bt_dhms_1", "label_dhms_1", "obj7", "obj8" };
 
 
 typedef void (*tick_screen_func_t)();

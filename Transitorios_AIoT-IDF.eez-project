@@ -807,15 +807,7 @@
             "childStyles": []
           },
           "timeline": [],
-          "eventHandlers": [
-            {
-              "objID": "a99354c6-5b3a-4751-f09d-4dcdd9fbbc7e",
-              "eventName": "PRESSED",
-              "handlerType": "action",
-              "action": "Fn_LabelDHMS_WiFi",
-              "userData": 0
-            }
-          ],
+          "eventHandlers": [],
           "leftUnit": "px",
           "topUnit": "px",
           "widthUnit": "px",
@@ -1664,7 +1656,7 @@
                                     }
                                   },
                                   "groupIndex": 0,
-                                  "text": "(11291104BG397)**397",
+                                  "text": "135797531!$&",
                                   "textType": "literal",
                                   "placeholder": "Enter Passwords",
                                   "oneLineMode": false,
@@ -2846,7 +2838,15 @@
                                   "locked": false,
                                   "hiddenInEditor": false,
                                   "timeline": [],
-                                  "eventHandlers": [],
+                                  "eventHandlers": [
+                                    {
+                                      "objID": "5466a99c-6791-4386-a284-a8032b1715f3",
+                                      "eventName": "PRESSED",
+                                      "handlerType": "action",
+                                      "action": "Fn_Connec_AIoT",
+                                      "userData": 0
+                                    }
+                                  ],
                                   "identifier": "Bt_DHMS_WiFi",
                                   "leftUnit": "px",
                                   "topUnit": "px",
