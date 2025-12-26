@@ -12,6 +12,12 @@ static int touch_irq_pin;
 
 #define CMD_X_READ  0xD0
 #define CMD_Y_READ  0x90
+#define  CLOCK_SPEED_HZ (4 * 1000 * 1000) // 1 MHz
+
+// Resolución
+#define PCLK_HZ (7 * 1000 * 1000)  // 7 MHz
+#define H_RES 480
+#define V_RES 272
 
 static int16_t spi_transfer_cmd(uint8_t cmd)
 {
@@ -41,7 +47,7 @@ void xpt2046_init_driver(spi_host_device_t host, int cs_pin, int irq_pin)
     gpio_config(&io_conf);
 
     spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = 1 * 1000 * 1000, 
+        .clock_speed_hz = CLOCK_SPEED_HZ, 
         .mode = 0,
         .spics_io_num = cs_pin,
         .queue_size = 1,
@@ -83,13 +89,13 @@ void xpt2046_read_cb_lvgl9(lv_indev_t * indev, lv_indev_data_t * data)
             avg_y += spi_transfer_cmd(CMD_Y_READ);
         }
 
-        int32_t cal_x = map(avg_x / samples, 200, 3900, 0, 480);
-        int32_t cal_y = map(avg_y / samples, 240, 3800, 0, 272);
+        int32_t cal_x = map(avg_x / samples, 200, 3900, 0, H_RES);
+        int32_t cal_y = map(avg_y / samples, 240, 3800, 0, V_RES);
 
         if (cal_x < 0) cal_x = 0;
-        if (cal_x > 479) cal_x = 479;
+        if (cal_x > H_RES-1) cal_x = H_RES-1;
         if (cal_y < 0) cal_y = 0;
-        if (cal_y > 271) cal_y = 271;
+        if (cal_y > V_RES-1) cal_y = V_RES-1;
 
         data->point.x = cal_x;
         data->point.y = cal_y;
