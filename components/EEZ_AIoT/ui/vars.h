@@ -10,8 +10,6 @@ extern "C" {
 
 // enum declarations
 
-
-
 // Flow global variables
 
 enum FlowGlobalVariables {
@@ -48,7 +46,6 @@ extern const char *get_var_label_dhms_2();
 extern void set_var_label_dhms_2(const char *value);
 extern const char *get_var_label_dhms_wi_fi();
 extern void set_var_label_dhms_wi_fi(const char *value);
-
 
 #ifdef __cplusplus
 }

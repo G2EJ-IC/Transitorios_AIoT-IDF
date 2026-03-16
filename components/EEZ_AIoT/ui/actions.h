@@ -12,7 +12,6 @@ extern void action_fn_re_scan(lv_event_t * e);
 extern void action_fn_connec_aio_t(lv_event_t * e);
 extern void action_fn_update_suspension(lv_event_t * e);
 
-
 #ifdef __cplusplus
 }
 #endif
