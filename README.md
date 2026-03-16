@@ -1,64 +1,67 @@
-# 🌊 AIoT Transitorios Hidráulicos: CrowPanel HMI Interface
+# 🌊 AIoT Hydraulic Transients Prediction using CNNs
 
-This project develops a Human-Machine Interface (HMI) for monitoring hydraulic transients, built on the Espressif ESP32-S3 platform. It utilizes the power of FreeRTOS, ESP-IDF, and LVGL (Light and Versatile Graphics Library) to provide real-time data visualization and configuration capabilities.
+This project develops an advanced IoT monitoring system and a Human-Machine Interface (HMI) to predict **Water Hammer** (hydraulic transients) in scale models. The system integrates Deep Learning (CNNs) with real-time data acquisition from a network of 16-channel sensor nodes.
+
+Built for the **Universidad Distrital Francisco José de Caldas** as part of a Master’s in Civil Engineering research.
 
 ---
 
 ## 👨‍🏫 Project Leadership & Authors
 
-* **Principal Investigator / Professor:** Ernesto José Guerrero González
-    * *Affiliation:* Universidad Distrital Francisco José de Caldas, Bogotá, D.C., Colombia [cite: 2025-11-21]
-    * *Role:* Professor of Materials Resistance and Concrete Technology [cite: 2025-11-21]
-* **Co-Author:** Juan Pablo Delgado Ordoñez (As observed on the device startup screen)
+* **Principal Investigator:** Ernesto José Guerrero González, IC, Esp.
+    * *Affiliation:* Professor at Universidad Distrital Francisco José de Caldas, Bogotá, Colombia.
+    * *Focus:* Strength of Materials & Concrete Technology.
+* **Co-Author:** Juan Paulo Delgado Ordoñez, IC.
+* **Director:** Edgar Orlando Ladino Moreno, IC, PhD, MSc.
+
+---
+
+## 🔬 Scientific & Research Framework
+
+The project implements a hybrid approach combining classical hydraulic theory with Artificial Intelligence:
+
+1.  **Stationary Regime:** Solved via the **Gradient Method** (Todini & Pilati), expressed in matrix form for network flow and piezometric head calculation.
+2.  **Transient Regime:** Based on **Wave Theory** (Newton/Zhukovsky) and solved through the Method of Characteristics, used as the ground truth for AI validation.
+3.  **Predictive Model:** A **1D-Convolutional Neural Network (1D-CNN)** architecture designed to detect pressure pulsations and predict structural risks in real-time.
 
 ---
 
 ## 🛠️ Hardware Platform: CrowPanel ESP32 HMI
 
-The project is specifically designed for the CrowPanel 4.3-inch HMI Display, which integrates an ESP32-S3 microcontroller with a 480x272 RGB LCD screen and an XPT2046 touch controller.
+The HMI is deployed on the **CrowPanel 4.3-inch Display**, serving as the master node for the sensor network.
 
-This platform is crucial for our AIoT (Artificial Intelligence of Things) application due to its robust Wi-Fi/BLE connectivity and integrated PSRAM for efficient LVGL handling.
-
-### Key Hardware Specifications
-* **Microcontroller:** ESP32-S3
-* **Display:** 4.3-inch RGB LCD (480x272 resolution)
-* **Touch Controller:** XPT2046 (SPI)
-* **Connectivity:** Wi-Fi and Bluetooth LE
-
-### 🔗 Manufacturer and Technical Links
-
-| Description | Link |
-| :--- | :--- |
-| **CrowPanel Wiki (Datasheet & Setup)** | [CrowPanel ESP32 HMI 4.3-inch Display - Elecrow Wiki](https://www.elecrow.com/wiki/esp32-display-432727-intelligent-touch-screen-wi-fi26ble-480272-hmi-display.html) |
-| **Elecrow GitHub Repository** | [Elecrow-RD/CrowPanel-4.3-HMI-ESP32-Display-480x272](https://github.com/Elecrow-RD/CrowPanel-4.3-HMI-ESP32-Display-480x272/tree/master) |
-| **XPT2046 Touch Driver (Reference)** | [PaulStoffregen/XPT2046\_Touchscreen](https://github.com/PaulStoffregen/XPT2046_Touchscreen) |
+### Key Specifications:
+* **Core:** ESP32-S3 (Dual-core, Wi-Fi/BLE).
+* **Display:** 4.3" RGB LCD (480x272).
+* **Touch:** XPT2046 (SPI).
+* **Sensor Nodes:** Custom-built modules with 16-channel capacity for pressure transducers, flow meters, and accelerometers.
 
 ---
 
-## ⚙️ Software Architecture
+## ⚙️ Software Architecture (Strictly ESP-IDF)
 
-The software is built upon the Espressif IoT Development Framework (ESP-IDF) using a highly modular approach to separate hardware drivers from application logic. 
+This project is developed using **Visual Studio Code** and the **Espressif IoT Development Framework (ESP-IDF) v5.x**. 
+*Note: PlatformIO is not supported.*
 
-[Image of Project Architecture Diagram]
-
-
-### Key Modules:
-
-* **`main_AIoT`:** The main orchestration file, managing FreeRTOS tasks, initialization (NVS, Hardware), and the LVGL main loop.
-* **`Configuracion_AIoT`:** Initializes the low-level hardware components (RGB Display bus, SPI for XPT2046) and the core LVGL setup.
-* **`IO_AIoT`:** **Power and System Management.** Handles Backlight PWM control, screen dimming/suspension logic based on user inactivity, and calculates the system uptime.
-* **`WiFi_AIoT`:** **Connectivity Driver.** Manages the STA mode connection state, handles IP/MAC/DNS retrieval, and provides the robust connection uptime timer required by the UI.
-* **`EEZ_AIoT (UI Component)`:**
-    * **`actions.cpp`:** Contains all the custom business logic, event handlers (e.g., connecting to WiFi, setting suspension time), and the periodic logic that updates the clocks and sensor data.
-    * **`vars.cpp`:** Manages the global state variables (Data Binding) used to synchronize data between the C++ logic and the LVGL user interface created with EEZ Studio.
+### Core Modules:
+* **`main_AIoT`:** Manages FreeRTOS tasks and system orchestration.
+* **`Configuracion_AIoT`:** Low-level HAL (Hardware Abstraction Layer) for RGB bus and SPI.
+* **`WiFi_AIoT`:** Robust connectivity driver with automatic reconnection and status monitoring.
+* **`EEZ_AIoT`:** UI logic generated via **EEZ Studio**, integrating C++ data binding with LVGL.
 
 ---
 
-## 📈 Current Development Status (Example)
+## 🚀 Installation & Build
 
-### **Module: WiFi Connection Clock Fix (Resolved)**
+Ensure you have the ESP-IDF environment correctly configured in VSCode.
 
-* **Issue:** The WiFi connection uptime clock remained static and did not reset to zero upon disconnection.
-* **Resolution:** The logic was stabilized by forcing a direct LVGL update on the `label_dhms_wi_fi` object inside the periodic task, resolving a conflict with the EEZ Studio Data Binding mechanism. The `WiFi_AIoT.c` driver was confirmed to correctly provide the `00:00:00` string when disconnected.
+```bash
+# Clone the repository
+git clone [https://github.com/G2EJ-IC/Transitorios_AIoT-IDF.git](https://github.com/G2EJ-IC/Transitorios_AIoT-IDF.git)
 
-***
+# Set the target to ESP32-S3
+idf.py set-target esp32s3
+
+# Build and Flash
+idf.py build
+idf.py -p [PORT] flash monitor
