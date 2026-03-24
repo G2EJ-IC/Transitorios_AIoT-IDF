@@ -380,7 +380,7 @@ void create_screen_main3() {
                     lv_obj_set_size(obj, 480, 272);
                     lv_tabview_set_tab_bar_position(obj, LV_DIR_TOP);
                     lv_tabview_set_tab_bar_size(obj, 30);
-                    lv_tabview_set_active(obj, , LV_ANIM_OFF);
+                    lv_tabview_set_active(obj, 1, LV_ANIM_OFF);
                     lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICKABLE);
                     {
                         lv_obj_t *parent_obj = obj;
@@ -576,7 +576,7 @@ void create_screen_main3() {
                                                     lv_obj_set_pos(obj, 127, 28);
                                                     lv_obj_set_size(obj, 307, 40);
                                                     lv_textarea_set_max_length(obj, 128);
-                                                    lv_textarea_set_text(obj, "135797531!$&");
+                                                    lv_textarea_set_text(obj, "(11291104BG397)**397");
                                                     lv_textarea_set_placeholder_text(obj, "Enter Passwords");
                                                     lv_textarea_set_one_line(obj, false);
                                                     lv_textarea_set_password_mode(obj, true);
