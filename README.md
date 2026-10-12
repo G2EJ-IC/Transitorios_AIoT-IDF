@@ -111,7 +111,7 @@ values.
 ## Authors
 
 - Ing. Ernesto José Guerrero González – Universidad Distrital Francisco José de Caldas, Bogotá, Colombia
-- Juan Paulo Delgado Ordoñez
+- Juan Paulo Delgado Ordoñez – Universidad Distrital Francisco José de Caldas, Bogotá, Colombia
 
 ## License
 
