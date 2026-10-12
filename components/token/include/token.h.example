@@ -1,0 +1,26 @@
+/*
+ * File: components/token/include/token.h.example
+ * Description: Template for private credentials.
+ *              Copy this file to token.h and fill in your own values.
+ *              token.h is listed in .gitignore and must never be committed.
+ */
+#ifndef __TOKEN_H__
+#define __TOKEN_H__
+
+/* WiFi network station credentials */
+struct WiFiCredentials {
+    const char* ssid;
+    const char* pass;
+};
+
+extern WiFiCredentials wifiNetworks[];
+extern int numNetworks;
+
+/* Telegram bot token (get it from @BotFather) */
+#define BOT_TOKEN "PUT_YOUR_BOT_TOKEN_HERE"
+#define BOT_ID    "PUT_YOUR_CHAT_ID_HERE"
+
+/* mDNS host name */
+#define name_MDNS "ESP32-XXXXXX"
+
+#endif /* __TOKEN_H__ */

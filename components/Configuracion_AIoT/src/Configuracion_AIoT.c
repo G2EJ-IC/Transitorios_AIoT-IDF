@@ -1,8 +1,25 @@
+/*
+ * File: components/Configuracion_AIoT/src/Configuracion_AIoT.c
+ * Description: Hardware bring-up for the CrowPanel 4.3" (480x272 RGB, XPT2046)
+ *              and LVGL 9 port (display, tick, touch input, mutex).
+ * Author: Ing. Ernesto José Guerrero González
+ * Standards: ESP-IDF v5.5.1, LVGL 9.x. English comments.
+ *
+ * Performance notes (why this version is faster than the previous one):
+ *  1. One PSRAM frame buffer (the second one was never displayed in PARTIAL mode).
+ *  2. LVGL draw buffer of 48 lines in internal SRAM (was 8 lines -> 34 render
+ *     passes per full screen, each one walking the whole widget tree).
+ *  3. LVGL tick taken from esp_timer_get_time() (no 500 Hz timer interrupt).
+ *  4. Refresh (33 ms) and touch read (20 ms) periods fixed from code.
+ *     See System_Defines_AIoT.h for the PSRAM bandwidth limits.
+ *  5. All parameters come from System_Defines_AIoT.h (single source of truth).
+ *  6. Must be called from the UI task on core 1 so the RGB/GDMA interrupts
+ *     are not delayed by the WiFi interrupts on core 0.
+ */
 #include "Configuracion_AIoT.h"
 #include "System_Defines_AIoT.h"
-#include "xpt2046_lvgl9.h" 
+#include "xpt2046_lvgl9.h"
 
-#include "esp_lcd_panel_io.h"
 #include "esp_lcd_panel_rgb.h"
 #include "esp_lcd_panel_ops.h"
 #include "driver/gpio.h"
@@ -11,130 +28,226 @@
 #include "esp_timer.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "freertos/semphr.h"
 #include "lvgl.h"
 
 static const char *TAG = "Config_AIoT";
 
-// --- PINES CROWPANEL 4.3 BASIC ---
-#define MY_DISP_PCLK    42
-#define MY_DISP_VSYNC   41
-#define MY_DISP_HSYNC   39
-#define MY_DISP_DE      40
-#define MY_DISP_BL      2
-#define NUM_FBS 2 // 1
+/* Compile-time checks for the bounce buffer geometry (see System_Defines_AIoT.h) */
+#if AIOT_LCD_BOUNCE_LINES > 0
+_Static_assert((AIOT_LCD_V_RES % AIOT_LCD_BOUNCE_LINES) == 0,
+               "AIOT_LCD_BOUNCE_LINES must divide AIOT_LCD_V_RES");
+_Static_assert(((AIOT_LCD_V_RES / AIOT_LCD_BOUNCE_LINES) % 2) == 0,
+               "V_RES / AIOT_LCD_BOUNCE_LINES must be EVEN (RESTART_IN_VSYNC shifts odd counts)");
+#endif
 
-// TOUCH SPI
-#define MY_TOUCH_HOST   SPI2_HOST
-#define MY_TOUCH_CLK    12
-#define MY_TOUCH_MOSI   11
-#define MY_TOUCH_MISO   13
-#define MY_TOUCH_CS     0   
-#define MY_TOUCH_IRQ    36
+static esp_lcd_panel_handle_t s_panel_handle = NULL;
+static lv_display_t *s_lv_disp = NULL;
+static lv_indev_t *s_lv_indev = NULL;
+static SemaphoreHandle_t s_lvgl_mutex = NULL;
 
-// Resolución
-#define PCLK_HZ (7 * 1000 * 1000)  // 7 MHz
-#define H_RES 480
-#define V_RES 272
+/* -------------------------------------------------------------------------- */
+/* LVGL callbacks                                                             */
+/* -------------------------------------------------------------------------- */
 
-// Buffer x8 Líneas
-#define BUFFER_LINES 8 // 8 
-
-static esp_lcd_panel_handle_t panel_handle = NULL;
-static lv_display_t *lv_disp = NULL;
-static lv_indev_t *lv_indev = NULL;
-
-static void lvgl_tick_task(void *arg) {
-    lv_tick_inc(2); 
+/* Millisecond tick source for LVGL (replaces the periodic esp_timer). */
+static uint32_t aiot_lvgl_tick_get_cb(void)
+{
+    return (uint32_t)(esp_timer_get_time() / 1000ULL);
 }
 
-static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map) {
-    esp_lcd_panel_handle_t panel_handle = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
-    int x1 = area->x1;
-    int y1 = area->y1;
-    int x2 = area->x2;
-    int y2 = area->y2;
-    esp_lcd_panel_draw_bitmap(panel_handle, x1, y1, x2 + 1, y2 + 1, px_map);
+/* Copies the rendered area into the PSRAM frame buffer.
+ * In copy mode the RGB driver performs a synchronous CPU copy, so the draw
+ * buffer can be released immediately. */
+static void aiot_lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area, uint8_t *px_map)
+{
+    esp_lcd_panel_handle_t panel = (esp_lcd_panel_handle_t)lv_display_get_user_data(disp);
+    esp_lcd_panel_draw_bitmap(panel, area->x1, area->y1, area->x2 + 1, area->y2 + 1, px_map);
     lv_display_flush_ready(disp);
 }
 
-// ESTA ES LA FUNCIÓN QUE TE FALTA
-esp_err_t Configuracion_AIoT_Init(void) {
-    ESP_LOGI(TAG, "Iniciando Hardware (7MHz / Buffer x8)...");
+/* -------------------------------------------------------------------------- */
+/* Public API: LVGL mutex                                                     */
+/* -------------------------------------------------------------------------- */
 
-    // 1. Configurar Panel RGB
+bool Configuracion_AIoT_Lock(uint32_t timeout_ms)
+{
+    if (s_lvgl_mutex == NULL) {
+        return false;
+    }
+    const TickType_t ticks = (timeout_ms == 0) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
+    return (xSemaphoreTakeRecursive(s_lvgl_mutex, ticks) == pdTRUE);
+}
+
+void Configuracion_AIoT_Unlock(void)
+{
+    if (s_lvgl_mutex != NULL) {
+        xSemaphoreGiveRecursive(s_lvgl_mutex);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Private init helpers                                                       */
+/* -------------------------------------------------------------------------- */
+
+static esp_err_t aiot_init_rgb_panel(void)
+{
     esp_lcd_rgb_panel_config_t panel_config = {
-        .data_width = 16,
-        .psram_trans_align = 64,
-        .num_fbs = NUM_FBS,
         .clk_src = LCD_CLK_SRC_DEFAULT,
-        .disp_gpio_num = GPIO_NUM_NC,
-        .pclk_gpio_num = MY_DISP_PCLK,
-        .vsync_gpio_num = MY_DISP_VSYNC,
-        .hsync_gpio_num = MY_DISP_HSYNC,
-        .de_gpio_num = MY_DISP_DE,
-        .data_gpio_nums = {
-            GPIO_NUM_8,  GPIO_NUM_3,  GPIO_NUM_46, GPIO_NUM_9,  GPIO_NUM_1,  GPIO_NUM_5, 
-            GPIO_NUM_6,  GPIO_NUM_7,  GPIO_NUM_15, GPIO_NUM_16, GPIO_NUM_4,  GPIO_NUM_45, 
-            GPIO_NUM_48, GPIO_NUM_47, GPIO_NUM_21, GPIO_NUM_14
-        },
         .timings = {
-            .pclk_hz = PCLK_HZ, // 7 MHz
-            .h_res = H_RES,
-            .v_res = V_RES,
-            .hsync_back_porch = 43, .hsync_front_porch = 8, .hsync_pulse_width = 4,
-            .vsync_back_porch = 12, .vsync_front_porch = 8, .vsync_pulse_width = 4,
+            .pclk_hz = AIOT_LCD_PIXEL_CLOCK_HZ,
+            .h_res = AIOT_LCD_H_RES,
+            .v_res = AIOT_LCD_V_RES,
+            .hsync_pulse_width = AIOT_LCD_HSYNC_PULSE_WIDTH,
+            .hsync_back_porch = AIOT_LCD_HSYNC_BACK_PORCH,
+            .hsync_front_porch = AIOT_LCD_HSYNC_FRONT_PORCH,
+            .vsync_pulse_width = AIOT_LCD_VSYNC_PULSE_WIDTH,
+            .vsync_back_porch = AIOT_LCD_VSYNC_BACK_PORCH,
+            .vsync_front_porch = AIOT_LCD_VSYNC_FRONT_PORCH,
             .flags.pclk_active_neg = 1,
         },
-        .flags.fb_in_psram = 1, 
-        .bounce_buffer_size_px = H_RES * BUFFER_LINES, // Buffer x8 (Estable)
+        .data_width = 16,
+        .bits_per_pixel = 16,
+        .num_fbs = AIOT_LCD_NUM_FBS,
+        .bounce_buffer_size_px = AIOT_LCD_H_RES * AIOT_LCD_BOUNCE_LINES,
+        .dma_burst_size = 64,
+        .hsync_gpio_num = AIOT_PIN_NUM_HSYNC,
+        .vsync_gpio_num = AIOT_PIN_NUM_VSYNC,
+        .de_gpio_num = AIOT_PIN_NUM_DE,
+        .pclk_gpio_num = AIOT_PIN_NUM_PCLK,
+        .disp_gpio_num = AIOT_PIN_NUM_DISP_EN,
+        .data_gpio_nums = {
+            AIOT_PIN_NUM_DATA0,  AIOT_PIN_NUM_DATA1,  AIOT_PIN_NUM_DATA2,  AIOT_PIN_NUM_DATA3,
+            AIOT_PIN_NUM_DATA4,  AIOT_PIN_NUM_DATA5,  AIOT_PIN_NUM_DATA6,  AIOT_PIN_NUM_DATA7,
+            AIOT_PIN_NUM_DATA8,  AIOT_PIN_NUM_DATA9,  AIOT_PIN_NUM_DATA10, AIOT_PIN_NUM_DATA11,
+            AIOT_PIN_NUM_DATA12, AIOT_PIN_NUM_DATA13, AIOT_PIN_NUM_DATA14, AIOT_PIN_NUM_DATA15,
+        },
+        .flags.fb_in_psram = 1,
     };
 
-    ESP_ERROR_CHECK(esp_lcd_new_rgb_panel(&panel_config, &panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_reset(panel_handle));
-    ESP_ERROR_CHECK(esp_lcd_panel_init(panel_handle));
+    esp_err_t err = esp_lcd_new_rgb_panel(&panel_config, &s_panel_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_lcd_new_rgb_panel failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel_handle));
+    ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel_handle));
+    return ESP_OK;
+}
 
-    // 2. Backlight ON
+static void aiot_init_backlight_gpio(void)
+{
+    /* Plain GPIO ON at boot. IO_AIoT_Init() later takes the pin over with LEDC PWM. */
     gpio_config_t bl_conf = {
-        .pin_bit_mask = (1ULL << MY_DISP_BL),
-        .mode = GPIO_MODE_OUTPUT, .pull_up_en = 0, .pull_down_en = 0, .intr_type = 0
+        .pin_bit_mask = (1ULL << AIOT_PIN_NUM_BK_LIGHT),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
     };
     gpio_config(&bl_conf);
-    gpio_set_level((gpio_num_t)MY_DISP_BL, 1);
+    gpio_set_level((gpio_num_t)AIOT_PIN_NUM_BK_LIGHT, 1);
+}
 
-    // 3. Touch SPI
+static esp_err_t aiot_init_touch(void)
+{
     spi_bus_config_t bus_cfg = {
-        .mosi_io_num = MY_TOUCH_MOSI,
-        .miso_io_num = MY_TOUCH_MISO,
-        .sclk_io_num = MY_TOUCH_CLK,
-        .quadwp_io_num = -1, .quadhd_io_num = -1, .max_transfer_sz = 0
+        .mosi_io_num = AIOT_PIN_NUM_TOUCH_MOSI,
+        .miso_io_num = AIOT_PIN_NUM_TOUCH_MISO,
+        .sclk_io_num = AIOT_PIN_NUM_TOUCH_CLK,
+        .quadwp_io_num = -1,
+        .quadhd_io_num = -1,
+        .max_transfer_sz = 0, /* default (4092 bytes): keeps the bus usable for a microSD later */
     };
-    spi_bus_initialize(MY_TOUCH_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+    esp_err_t err = spi_bus_initialize(AIOT_TOUCH_SPI_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "spi_bus_initialize failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    xpt2046_init_driver(AIOT_TOUCH_SPI_HOST, AIOT_PIN_NUM_TOUCH_CS, AIOT_PIN_NUM_TOUCH_IRQ);
+    return ESP_OK;
+}
 
-    // 4. Iniciar Driver XPT2046
-    xpt2046_init_driver(MY_TOUCH_HOST, MY_TOUCH_CS, MY_TOUCH_IRQ);
-
-    // 5. LVGL
+static esp_err_t aiot_init_lvgl(void)
+{
     lv_init();
-    
-    const esp_timer_create_args_t lvgl_tick_timer_args = { .callback = &lvgl_tick_task, .name = "lvgl_tick" };
-    esp_timer_handle_t lvgl_tick_timer = NULL;
-    ESP_ERROR_CHECK(esp_timer_create(&lvgl_tick_timer_args, &lvgl_tick_timer));
-    ESP_ERROR_CHECK(esp_timer_start_periodic(lvgl_tick_timer, 2000));
+    lv_tick_set_cb(aiot_lvgl_tick_get_cb);
 
-    lv_disp = lv_display_create(480, 272);
-    lv_display_set_user_data(lv_disp, panel_handle);
-    lv_display_set_flush_cb(lv_disp, lvgl_flush_cb);
+    /* Display */
+    s_lv_disp = lv_display_create(AIOT_LCD_H_RES, AIOT_LCD_V_RES);
+    if (s_lv_disp == NULL) {
+        ESP_LOGE(TAG, "lv_display_create failed");
+        return ESP_FAIL;
+    }
+    lv_display_set_color_format(s_lv_disp, LV_COLOR_FORMAT_RGB565);
+    lv_display_set_user_data(s_lv_disp, s_panel_handle);
+    lv_display_set_flush_cb(s_lv_disp, aiot_lvgl_flush_cb);
 
-    void *buf1 = heap_caps_malloc(H_RES * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
-    void *buf2 = heap_caps_malloc(H_RES * BUFFER_LINES * sizeof(uint16_t), MALLOC_CAP_INTERNAL | MALLOC_CAP_DMA);
-    
-    lv_display_set_buffers(lv_disp, buf1, buf2, H_RES * BUFFER_LINES * sizeof(uint16_t), LV_DISPLAY_RENDER_MODE_PARTIAL);
+    /* Single draw buffer in internal SRAM (fast rendering).
+     * A second buffer gives no benefit here because the flush is synchronous. */
+    void *buf = heap_caps_malloc(AIOT_LVGL_DRAW_BUF_BYTES, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+    if (buf == NULL) {
+        ESP_LOGW(TAG, "No internal RAM for draw buffer, falling back to PSRAM (slower)");
+        buf = heap_caps_malloc(AIOT_LVGL_DRAW_BUF_BYTES, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
+    }
+    if (buf == NULL) {
+        ESP_LOGE(TAG, "Draw buffer allocation failed");
+        return ESP_ERR_NO_MEM;
+    }
+    lv_display_set_buffers(s_lv_disp, buf, NULL, AIOT_LVGL_DRAW_BUF_BYTES, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
-    // Conectar Touch
-    lv_indev = lv_indev_create();
-    lv_indev_set_type(lv_indev, LV_INDEV_TYPE_POINTER);
-    lv_indev_set_read_cb(lv_indev, xpt2046_read_cb_lvgl9);
+    lv_timer_t *refr_timer = lv_display_get_refr_timer(s_lv_disp);
+    if (refr_timer != NULL) {
+        lv_timer_set_period(refr_timer, AIOT_LVGL_REFR_PERIOD_MS);
+    }
 
+    /* Touch input */
+    s_lv_indev = lv_indev_create();
+    lv_indev_set_type(s_lv_indev, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(s_lv_indev, xpt2046_read_cb_lvgl9);
+    lv_indev_set_display(s_lv_indev, s_lv_disp);
+
+    lv_timer_t *read_timer = lv_indev_get_read_timer(s_lv_indev);
+    if (read_timer != NULL) {
+        lv_timer_set_period(read_timer, AIOT_TOUCH_READ_PERIOD_MS);
+    }
+    return ESP_OK;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Public API: init                                                           */
+/* -------------------------------------------------------------------------- */
+
+esp_err_t Configuracion_AIoT_Init(void)
+{
+    ESP_LOGI(TAG, "Init: PCLK %d Hz, bounce %d lines, LVGL buffer %d lines, core %d",
+             AIOT_LCD_PIXEL_CLOCK_HZ, AIOT_LCD_BOUNCE_LINES, AIOT_LVGL_DRAW_BUF_LINES,
+             (int)xPortGetCoreID());
+
+    s_lvgl_mutex = xSemaphoreCreateRecursiveMutex();
+    if (s_lvgl_mutex == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t err = aiot_init_rgb_panel();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    aiot_init_backlight_gpio();
+
+    err = aiot_init_touch();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    err = aiot_init_lvgl();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    ESP_LOGI(TAG, "Free internal: %u bytes, free PSRAM: %u bytes",
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+             (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
     return ESP_OK;
 }

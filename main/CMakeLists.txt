@@ -8,6 +8,7 @@ idf_component_register(
     REQUIRES
         nvs_flash
         esp_system
+        esp_timer
         lvgl__lvgl
         Configuracion_AIoT
         IO_AIoT

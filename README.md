@@ -1,110 +1,118 @@
-# 🌊 AIoT Hydraulic Transients Prediction using CNNs
+# Transitorios AIoT – CrowPanel 4.3" HMI (ESP-IDF + LVGL 9 + EEZ Studio)
 
-This project develops an advanced IoT monitoring system and a Human-Machine Interface (HMI) to predict **Water Hammer** (hydraulic transients) in scale models. The system integrates Deep Learning (CNNs) with real-time data acquisition from a network of 16-channel sensor nodes.
+Touch HMI for the **AIoT Hydraulic Transients** project, running on the
+**Elecrow CrowPanel 4.3" ESP32 HMI** with the official Espressif framework
+(**ESP-IDF v5.5.1**, no Arduino layer), **LVGL 9.6** and a UI designed in
+**EEZ Studio** (EEZ Flow).
 
-Built for the **Universidad Distrital Francisco José de Caldas** as part of a Master’s in Civil Engineering research.
+The main goal of this repository is to share a **smooth, stable RGB display
+configuration** for this board under ESP-IDF, which is hard to get right because
+of its tight memory bandwidth.
 
----
+## Hardware
 
-## 👨‍🏫 Project Leadership & Authors
+| Item | Value |
+|---|---|
+| Board | Elecrow CrowPanel 4.3" ESP32 HMI (Basic) |
+| Module | ESP32-S3-WROOM-1-**N4R2** (4 MB flash, 2 MB **quad** PSRAM) |
+| Display | 480 × 272, NV3047, 16-bit parallel RGB565 |
+| Touch | Resistive, XPT2046 over SPI2 |
 
-* **Principal Investigator:** Ernesto José Guerrero González, IC, Esp.
-    * *Affiliation:* Professor at Universidad Distrital Francisco José de Caldas, Bogotá, Colombia.
-    * *Focus:* Strength of Materials & Concrete Technology.
-* **Co-Author:** Juan Paulo Delgado Ordoñez, IC.
-* **Director:** Edgar Orlando Ladino Moreno, IC, PhD, MSc.
+## Software
 
----
+| Component | Version |
+|---|---|
+| ESP-IDF | v5.5.1 |
+| LVGL | 9.6.0 (managed component, see `main/idf_component.yml`) |
+| UI | EEZ Studio (LVGL 9, EEZ Flow) |
 
-## 🔬 Scientific & Research Framework
+## Display configuration that works
 
-The project implements a hybrid approach combining classical hydraulic theory with Artificial Intelligence:
+All values live in `components/Configuracion_AIoT/include/System_Defines_AIoT.h`.
 
-1. **Stationary Regime:** Solved via the **Gradient Method** (Todini & Pilati), expressed in matrix form for network flow and piezometric head calculation.
-2. **Transient Regime:** Based on **Wave Theory** (Newton/Zhukovsky) and solved through the Method of Characteristics, used as the ground truth for AI validation.
-3. **Predictive Model:** A **1D-Convolutional Neural Network (1D-CNN)** architecture designed to detect pressure pulsations and predict structural risks in real-time.
+| Setting | Value | Why |
+|---|---|---|
+| Pixel clock | **6 MHz** (~38 Hz refresh) | Same as the Elecrow factory firmware; lowers PSRAM traffic |
+| Porches H / V (back, front, pulse) | 43, 8, 4 / 12, 8, 4 | Panel timing |
+| Frame buffers | **1** in PSRAM | LVGL PARTIAL mode only ever writes the current buffer |
+| Bounce buffers | **8 lines** (34 chunks per frame) | Absorbs PSRAM contention from WiFi/flash |
+| LVGL draw buffer | 48 lines, internal SRAM, PARTIAL mode | Fast rendering, ~6 passes per full screen |
+| LVGL refresh period | 33 ms (~30 FPS) | Keeps the PSRAM write stream below saturation |
+| `CONFIG_LCD_RGB_RESTART_IN_VSYNC` | y | Any DMA hiccup is fixed on the next frame |
+| CPU | 240 MHz | |
+| Flash | QIO 80 MHz | Images and fonts are read from flash |
 
----
+### Task / core layout
 
-## 🛠️ Hardware Platform: CrowPanel ESP32 HMI
+| Core 0 | Core 1 |
+|---|---|
+| WiFi, lwIP, system event loop, `esp_timer` | `ui_task`: RGB panel init, touch, LVGL, EEZ Flow |
+| `app_main` (NVS, backlight PWM, WiFi start) | RGB panel interrupts (bounce-buffer refill) |
 
-The HMI is deployed on the **CrowPanel 4.3-inch Display**, serving as the master node for the sensor network.
+The panel is created **inside** `ui_task`, so its interrupts are allocated on
+core 1, away from the WiFi interrupts on core 0.
 
-### Key Specifications
+## Lessons learned (pitfalls on this board)
 
-* **Core:** ESP32-S3 (Dual-core, Wi-Fi/BLE).
-* **Display:** 4.3" RGB LCD (480x272).
-* **Touch:** XPT2046 (SPI).
-* **Sensor Nodes:** Custom-built modules with 16-channel capacity for pressure transducers, flow meters, and accelerometers.
+1. **Bounce buffer height must give an EVEN number of chunks per frame** when
+   `CONFIG_LCD_RGB_RESTART_IN_VSYNC` is enabled. With 16 lines
+   (272 / 16 = 17, odd) every other frame is shifted by 16 lines and the image
+   looks doubled. Valid values for 272 lines: 1, 2, 4, **8**, 34, 68, 136.
+   A `_Static_assert` in `Configuracion_AIoT.c` enforces this.
+2. **No bounce buffers (direct GDMA from PSRAM) drifts** on this board once WiFi
+   is active: flash and the quad PSRAM share the same bus.
+3. **Refreshing LVGL at 20 ms (50 FPS) saturates the quad PSRAM** during
+   full-screen animations. 33 ms is the safe value.
+4. Prefer **OVER_LEFT / OVER_RIGHT** screen transitions, or keep FADE short
+   (≤ 200 ms): a fade blends two full screens on every frame.
+5. The Main3 **tabview swipe is disabled** in `ui_apply_runtime_tweaks()`
+   (`main/main_AIoT.c`): with a resistive panel any tiny stylus drag slid the
+   tabs. The tweak lives outside the EEZ files so it survives code regeneration.
+6. XPT2046 SPI clock: **2 MHz** (datasheet maximum is 2.5 MHz), pressure (Z)
+   check and median filtering are used to avoid phantom touches.
 
----
+## Project structure
 
-## ⚙️ Software Architecture (Strictly ESP-IDF)
-
-This project is developed using **Visual Studio Code** and the **Espressif IoT Development Framework (ESP-IDF) v5.x**.
-
-> **Note:** PlatformIO is not supported.
-
-### Core Modules
-
-* **`main_AIoT`**: Manages FreeRTOS tasks and system orchestration.
-* **`Configuracion_AIoT`**: Low-level HAL (Hardware Abstraction Layer) for RGB bus and SPI.
-* **`WiFi_AIoT`**: Robust connectivity driver with automatic reconnection and status monitoring.
-* **`EEZ_AIoT`**: UI logic generated via **EEZ Studio**, integrating C++ data binding with LVGL.
-
----
-
-## 🚀 Installation & Build
-
-Ensure you have the ESP-IDF environment correctly configured in VSCode.
-
-```bash
-# Clone the repository
-git clone https://github.com/G2EJ-IC/Transitorios_AIoT-IDF.git
-
-# Enter the project directory
-cd Transitorios_AIoT-IDF
-
-# Set the target to ESP32-S3
-idf.py set-target esp32s3
-
-# Build and flash
-idf.py build
-idf.py -p [PORT] flash monitor
+```
+components/
+  Configuracion_AIoT/   RGB panel, XPT2046 touch, LVGL port, LVGL mutex
+  EEZ_AIoT/             UI generated by EEZ Studio
+  IO_AIoT/              Backlight PWM and auto-suspend
+  WiFi_AIoT/            WiFi station
+  UARTn_AIoT/           UART helper
+  token/                Private credentials (NOT committed, see below)
+main/                   app_main and the UI task
+sdkconfig.defaults      Board and performance settings
 ```
 
----
+## Build
 
-## 📜 Licensing
+```bash
+idf.py set-target esp32s3
+idf.py build
+idf.py -p COMx flash monitor
+```
 
-### Software and firmware
+`sdkconfig.defaults` is only applied when `sdkconfig` does not exist yet.
+After changing it, delete `sdkconfig` and run `idf.py fullclean`.
 
-Unless otherwise noted, the software and firmware in this repository are licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0-or-later)**.
+Expected boot log line:
 
-This means you may use, study, modify, and redistribute the code, including for commercial purposes, provided that:
+```
+Config_AIoT: Init: PCLK 6000000 Hz, bounce 8 lines, LVGL buffer 48 lines, core 1
+```
 
-- copyright and license notices are preserved;
-- modified versions are also released under AGPL when distributed; and
-- if the software is used to provide a network service, users interacting with that service can access the corresponding source code of the running modified version.
+## Credentials
 
-### Documentation
+`components/token/include/token.h` is ignored by git. Copy
+`components/token/include/token.h.example` to `token.h` and fill in your own
+values.
 
-Unless otherwise noted, project documentation, figures, explanatory texts, and other non-software written materials are licensed under **Creative Commons Attribution 4.0 International (CC BY 4.0)**.
+## Authors
 
-### Hardware
+- Ing. Ernesto José Guerrero González – Universidad Distrital Francisco José de Caldas, Bogotá, Colombia
+- Juan Paulo Delgado Ordoñez
 
-Unless otherwise noted, hardware design files, schematics, PCB layouts, and related manufacturing documentation are intended to be released under **CERN Open Hardware Licence Version 2 - Strongly Reciprocal (CERN-OHL-S v2)**.
+## License
 
-### Attribution and citation
-
-If you use this project in academic work, teaching material, derived repositories, or technical reports, please provide visible attribution to the original authors and cite the repository and associated university research outputs.
-
-### Commercial licensing
-
-For organizations that want to integrate this work into proprietary products, closed services, or commercial solutions without complying with AGPL reciprocal obligations, a separate **commercial license** may be available by written agreement with the copyright holders.
-
-See also: `COMMERCIAL-LICENSE-NOTICE.md`
-
-### Authors
-
-Copyright (c) 2025-2026 Ernesto José Guerrero González and Juan Paulo Delgado Ordoñez.
+See `LICENSE`.

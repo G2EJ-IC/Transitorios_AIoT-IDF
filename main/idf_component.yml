@@ -1,3 +1,10 @@
+## File: main/idf_component.yml
+## Description: Managed component dependencies for the CrowPanel 4.3" HMI project.
+## Standards: ESP-IDF v5.5.1 Component Manager manifest.
+
 dependencies:
-  lvgl/lvgl: "9.5.0"
-  
+  ## Required ESP-IDF version
+  idf: ">=5.5.0"
+
+  ## LVGL graphics library (pinned to the version already validated on this project)
+  lvgl/lvgl: "9.6.0"

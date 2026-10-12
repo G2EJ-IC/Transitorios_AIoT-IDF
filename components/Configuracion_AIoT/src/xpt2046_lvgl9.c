@@ -1,108 +1,155 @@
+/*
+ * File: components/Configuracion_AIoT/src/xpt2046_lvgl9.c
+ * Description: Minimal XPT2046 resistive touch driver for LVGL 9.
+ * Author: Ing. Ernesto José Guerrero González
+ * Standards: ESP-IDF v5.5.1, LVGL 9.x. English comments.
+ *
+ * Changes versus the previous version:
+ *  - SPI clock 2 MHz (datasheet max DCLK is 2.5 MHz; 4 MHz produced noisy samples).
+ *  - Pressure (Z1/Z2) check: no more phantom points on press/release edges.
+ *  - First conversion after switching channel is discarded (settling time).
+ *  - Median-of-5 filter per axis + 2 px hysteresis: a finger held still does not
+ *    generate new coordinates, so LVGL does not invalidate/redraw for nothing.
+ *  - No artificial debounce period (removed one full read period of latency).
+ *  - Calibration and screen size come from System_Defines_AIoT.h.
+ */
 #include "xpt2046_lvgl9.h"
+#include "System_Defines_AIoT.h"
+
+#include <stdlib.h>
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "esp_rom_sys.h" // Para esp_rom_delay_us
-#include <string.h>
-#include "esp_timer.h"
 
-// static const char *TAG = "XPT2046";
+static const char *TAG = "XPT2046";
 
-static spi_device_handle_t touch_spi_handle;
-static int touch_irq_pin;
+/* XPT2046 control bytes: S=1, 12-bit, differential reference, PD1:PD0 = 00
+ * (power down between conversions, PENIRQ enabled). */
+#define XPT_CMD_X       0xD0
+#define XPT_CMD_Y       0x90
+#define XPT_CMD_Z1      0xB0
+#define XPT_CMD_Z2      0xC0
 
-#define CMD_X_READ  0xD0
-#define CMD_Y_READ  0x90
-#define  CLOCK_SPEED_HZ (4 * 1000 * 1000) // 1 MHz
+#define XPT_SAMPLES     5   /* Samples per axis, filtered with a median */
+#define XPT_HYST_PX     2   /* Ignore movements smaller than this (pixels) */
 
-// Resolución
-#define PCLK_HZ (7 * 1000 * 1000)  // 7 MHz
-#define H_RES 480
-#define V_RES 272
+static spi_device_handle_t s_touch_spi = NULL;
+static int s_irq_pin = -1;
+static int32_t s_last_x = 0;
+static int32_t s_last_y = 0;
+static bool s_was_pressed = false;
 
-static int16_t spi_transfer_cmd(uint8_t cmd)
+/* Sends one control byte and returns the 12-bit conversion result (or -1). */
+static int32_t xpt_read12(uint8_t cmd)
 {
-    uint8_t data_out[3] = {cmd, 0x00, 0x00};
-    uint8_t data_in[3] = {0, 0, 0};
-
     spi_transaction_t t = {
+        .flags = SPI_TRANS_USE_TXDATA | SPI_TRANS_USE_RXDATA,
         .length = 24,
-        .tx_buffer = data_out,
-        .rx_buffer = data_in,
-        .flags = 0
+        .tx_data = { cmd, 0x00, 0x00, 0x00 },
     };
-    esp_err_t ret = spi_device_polling_transmit(touch_spi_handle, &t);
-    if (ret != ESP_OK) return -1;
-    int16_t val = ((data_in[1] << 8) | data_in[2]) >> 3;
-    return val;
+    if (spi_device_polling_transmit(s_touch_spi, &t) != ESP_OK) {
+        return -1;
+    }
+    return (int32_t)((((uint16_t)t.rx_data[1] << 8) | t.rx_data[2]) >> 3) & 0x0FFF;
 }
 
-void xpt2046_init_driver(spi_host_device_t host, int cs_pin, int irq_pin) 
+/* Reads one axis: discards the first conversion, returns the median of N. */
+static int32_t xpt_read_axis(uint8_t cmd)
 {
-    touch_irq_pin = irq_pin;
-    gpio_config_t io_conf = {};
-    io_conf.intr_type = GPIO_INTR_DISABLE;
-    io_conf.mode = GPIO_MODE_INPUT;
-    io_conf.pin_bit_mask = (1ULL << irq_pin);
-    io_conf.pull_up_en = 1; 
+    int32_t s[XPT_SAMPLES];
+    (void)xpt_read12(cmd); /* settling sample, discarded */
+    for (int i = 0; i < XPT_SAMPLES; i++) {
+        s[i] = xpt_read12(cmd);
+    }
+    /* Insertion sort (N is tiny) */
+    for (int i = 1; i < XPT_SAMPLES; i++) {
+        int32_t k = s[i];
+        int j = i - 1;
+        while (j >= 0 && s[j] > k) {
+            s[j + 1] = s[j];
+            j--;
+        }
+        s[j + 1] = k;
+    }
+    return s[XPT_SAMPLES / 2];
+}
+
+/* Touch pressure estimate: higher value = firmer press. */
+static int32_t xpt_read_pressure(void)
+{
+    int32_t z1 = xpt_read12(XPT_CMD_Z1);
+    int32_t z2 = xpt_read12(XPT_CMD_Z2);
+    if (z1 < 0 || z2 < 0) {
+        return 0;
+    }
+    return z1 + 4095 - z2;
+}
+
+static inline int32_t xpt_map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max)
+{
+    return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+static inline int32_t xpt_clamp(int32_t v, int32_t lo, int32_t hi)
+{
+    return (v < lo) ? lo : ((v > hi) ? hi : v);
+}
+
+void xpt2046_init_driver(spi_host_device_t host, int cs_pin, int irq_pin)
+{
+    s_irq_pin = irq_pin;
+
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << irq_pin),
+        .mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
     gpio_config(&io_conf);
 
     spi_device_interface_config_t devcfg = {
-        .clock_speed_hz = CLOCK_SPEED_HZ, 
+        .clock_speed_hz = AIOT_TOUCH_SPI_CLOCK_HZ,
         .mode = 0,
         .spics_io_num = cs_pin,
         .queue_size = 1,
     };
-    ESP_ERROR_CHECK(spi_bus_add_device(host, &devcfg, &touch_spi_handle));
+    ESP_ERROR_CHECK(spi_bus_add_device(host, &devcfg, &s_touch_spi));
+    ESP_LOGI(TAG, "XPT2046 ready (SPI %d Hz, IRQ GPIO %d)", AIOT_TOUCH_SPI_CLOCK_HZ, irq_pin);
 }
 
-long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
-
-void xpt2046_read_cb_lvgl9(lv_indev_t * indev, lv_indev_data_t * data)
+void xpt2046_read_cb_lvgl9(lv_indev_t *indev, lv_indev_data_t *data)
 {
-    static int64_t t_press_us = 0;
-    static bool pending = false;
+    (void)indev;
 
-    if (gpio_get_level(touch_irq_pin) == 0) {
+    /* Fast path: PENIRQ high -> nobody is touching the panel (no SPI traffic). */
+    bool pressed = (gpio_get_level((gpio_num_t)s_irq_pin) == 0);
 
-        int64_t now = esp_timer_get_time();
-
-        // Debounce no bloqueante: exige presión estable ~2ms
-        if (!pending) {
-            pending = true;
-            t_press_us = now;
-            data->state = LV_INDEV_STATE_RELEASED;
-            return;
-        }
-        if ((now - t_press_us) < 2000) {
-            data->state = LV_INDEV_STATE_RELEASED;
-            return;
-        }
-
-        // Ya estable -> leer y promediar
-        int32_t avg_x = 0, avg_y = 0;
-        const int samples = 4;
-
-        for (int i = 0; i < samples; i++) {
-            avg_x += spi_transfer_cmd(CMD_X_READ);
-            avg_y += spi_transfer_cmd(CMD_Y_READ);
-        }
-
-        int32_t cal_x = map(avg_x / samples, 200, 3900, 0, H_RES);
-        int32_t cal_y = map(avg_y / samples, 240, 3800, 0, V_RES);
-
-        if (cal_x < 0) cal_x = 0;
-        if (cal_x > H_RES-1) cal_x = H_RES-1;
-        if (cal_y < 0) cal_y = 0;
-        if (cal_y > V_RES-1) cal_y = V_RES-1;
-
-        data->point.x = cal_x;
-        data->point.y = cal_y;
-        data->state = LV_INDEV_STATE_PRESSED;
-        return;
+    if (pressed && xpt_read_pressure() < AIOT_TOUCH_Z_THRESHOLD) {
+        pressed = false; /* Too light: edge of a press/release, ignore */
     }
 
-    pending = false;
-    data->state = LV_INDEV_STATE_RELEASED;
+    if (pressed) {
+        int32_t raw_x = xpt_read_axis(XPT_CMD_X);
+        int32_t raw_y = xpt_read_axis(XPT_CMD_Y);
+
+        int32_t x = xpt_map(raw_x, AIOT_TOUCH_RAW_X_MIN, AIOT_TOUCH_RAW_X_MAX, 0, AIOT_LCD_H_RES);
+        int32_t y = xpt_map(raw_y, AIOT_TOUCH_RAW_Y_MIN, AIOT_TOUCH_RAW_Y_MAX, 0, AIOT_LCD_V_RES);
+        x = xpt_clamp(x, 0, AIOT_LCD_H_RES - 1);
+        y = xpt_clamp(y, 0, AIOT_LCD_V_RES - 1);
+
+        /* Hysteresis: keep the previous point while the finger is still */
+        if (!s_was_pressed || abs(x - s_last_x) > XPT_HYST_PX || abs(y - s_last_y) > XPT_HYST_PX) {
+            s_last_x = x;
+            s_last_y = y;
+        }
+        s_was_pressed = true;
+        data->state = LV_INDEV_STATE_PRESSED;
+    } else {
+        s_was_pressed = false;
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+
+    /* On release LVGL needs the last valid point (avoids PRESS_LOST on click) */
+    data->point.x = s_last_x;
+    data->point.y = s_last_y;
 }

@@ -13,18 +13,18 @@ A. CARPETA /ui/  (ZONA GENERADA - NO TOCAR)
      Cualquier cambio se perderá la próxima vez que presiones "Generate" 
      en EEZ Studio.
 
-B. CARPETA /src/ (ZONA DE LÓGICA - TU CÓDIGO)
+B. CARPETA /src/ (ZONA DE LÓGICA - MI CÓDIGO)
    - Contiene: actions.cpp, vars.cpp y lógica de negocio.
    - Origen: Creado y mantenido por el desarrollador.
    - REGLA: Aquí es donde implementas las funciones que EEZ Studio solicita.
 
 2. FLUJO DE TRABAJO (WORKFLOW)
 -------------------------------------------------------------------------
-1. En EEZ Studio: Creas la interfaz, agregas botones y Defines VARIABLES.
+1. En EEZ Studio: Creo la interfaz, agregas botones y Defines VARIABLES.
 2. En EEZ Studio: Botón "Generate".
 3. En el Código (/src/):
-   - Si creaste una "Acción" nueva: Implementa la función en actions.cpp
-   - Si creaste una "Variable" nueva: Implementa los get/set en vars.cpp
+   - Si Creo una "Acción" nueva: Implementa la función en actions.cpp
+   - Si Creo una "Variable" nueva: Implementa los get/set en vars.cpp
 
 3. USO DE VARIABLES (DATA BINDING)
 -------------------------------------------------------------------------

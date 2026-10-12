@@ -1,3 +1,10 @@
+/*
+ * File: components/Configuracion_AIoT/include/xpt2046_lvgl9.h
+ * Description: Minimal XPT2046 resistive touch driver for LVGL 9 (polling,
+ *              pressure check, median filtering).
+ * Author: Ing. Ernesto José Guerrero González
+ * Standards: ESP-IDF v5.5.1, LVGL 9.x. English comments.
+ */
 #pragma once
 
 #include "lvgl.h"
@@ -9,19 +16,19 @@ extern "C" {
 #endif
 
 /**
- * @brief Inicializa el driver XPT2046
- * @param host  Host SPI (ej. SPI2_HOST)
- * @param cs_pin Pin Chip Select
- * @param irq_pin Pin de Interrupción (IRQ)
+ * @brief Registers the XPT2046 on an already initialized SPI bus.
+ * @param host    SPI host (e.g. SPI2_HOST)
+ * @param cs_pin  Chip select GPIO
+ * @param irq_pin PENIRQ GPIO (active low while the panel is pressed)
  */
 void xpt2046_init_driver(spi_host_device_t host, int cs_pin, int irq_pin);
 
 /**
- * @brief Callback de lectura para LVGL 9
- * @param indev Driver de entrada de LVGL
- * @param data  Estructura de datos para rellenar (coordenadas)
+ * @brief LVGL 9 pointer read callback.
+ * @param indev LVGL input device
+ * @param data  Output: point and state
  */
-void xpt2046_read_cb_lvgl9(lv_indev_t * indev, lv_indev_data_t * data);
+void xpt2046_read_cb_lvgl9(lv_indev_t *indev, lv_indev_data_t *data);
 
 #ifdef __cplusplus
 }

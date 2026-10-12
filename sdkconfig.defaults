@@ -1,17 +1,63 @@
-# CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="./partitions/partitions.csv"
+# File: sdkconfig.defaults
+# Description: Defaults for CrowPanel 4.3" HMI (ESP32-S3-WROOM-1-N4R2:
+#              4 MB flash, 2 MB QUAD PSRAM), ESP-IDF v5.5.1, LVGL 9.x.
+# IMPORTANT: sdkconfig.defaults is only applied when "sdkconfig" does not exist.
+#            Back up and delete "sdkconfig" (or run "idf.py fullclean" after
+#            deleting it) so these values are actually used.
 
-# Configuración de Memoria
-CONFIG_ESP32S3_SPIRAM_SUPPORT=y
-CONFIG_SPIRAM_MODE_OCT=y
+# --- CPU ---------------------------------------------------------------------
+# Default is 160 MHz. 240 MHz = +50 % rendering speed for LVGL.
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# --- Flash (N4 = 4 MB, QIO 80 MHz: images/fonts are read from flash) ---------
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+# The default 1 MB app partition is too small for LVGL + EEZ + WiFi.
+# "Single factory app (large)" = 1.5 MB app. If you use your own CSV, comment
+# the next line and enable the two CUSTOM lines instead.
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+# CONFIG_PARTITION_TABLE_CUSTOM=y
+# CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/partitions.csv"
+
+# --- PSRAM (R2 = 2 MB QUAD, NOT octal) ----------------------------------------
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_QUAD=y
 CONFIG_SPIRAM_SPEED_80M=y
-# Nota: Si falla con OCT (Octal), cambiar a QUAD. La versión Advanced suele ser Octal.
-# CONFIG_SPIRAM_MODE_QUAD=y
 
-# Aumentar la frecuencia de interrupciones de FreeRTOS a 1000Hz (1ms tick)
+# --- Cache (Espressif recommendation for RGB panels) --------------------------
+CONFIG_ESP32S3_DATA_CACHE_64KB=y
+CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
+
+# --- RGB LCD driver ------------------------------------------------------------
+# Keeps the RGB ISR alive during flash writes (NVS) and resyncs every VSYNC
+# if the DMA ever falls behind (prevents a permanently shifted image).
+CONFIG_LCD_RGB_ISR_IRAM_SAFE=y
+CONFIG_LCD_RGB_RESTART_IN_VSYNC=y
+
+# --- WiFi / lwIP on core 0 (core 1 is reserved for the display + LVGL) -------
+CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_0=y
+CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
+# Keep WiFi/lwIP buffers in internal RAM (do not load the PSRAM bus)
+# CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP is not set
+
+# --- FreeRTOS -----------------------------------------------------------------
 CONFIG_FREERTOS_HZ=1000
 
-# Tamaño de Flash (Advanced tiene 16MB)
-CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
-
-# Optimización del Compilador para Rendimiento (Crítico para UI fluida)
+# --- Compiler -----------------------------------------------------------------
 CONFIG_COMPILER_OPTIMIZATION_PERF=y
+
+# --- LVGL 9 (managed component lvgl/lvgl) -------------------------------------
+CONFIG_LV_COLOR_DEPTH_16=y
+# 33 ms (~30 FPS): faster refresh saturates the quad PSRAM during animations
+CONFIG_LV_DEF_REFR_PERIOD=33
+# Use the C library allocator: no fixed 64 KB LVGL heap, large objects may go
+# to PSRAM through the ESP-IDF heap.
+CONFIG_LV_USE_CLIB_MALLOC=y
+CONFIG_LV_USE_CLIB_STRING=y
+CONFIG_LV_USE_CLIB_SPRINTF=y
+# Put LVGL hot rendering functions in IRAM
+CONFIG_LV_ATTRIBUTE_FAST_MEM_USE_IRAM=y
+# TEMPORARY: FPS / CPU overlay to measure improvements. Disable afterwards.
+CONFIG_LV_USE_SYSMON=y
+CONFIG_LV_USE_PERF_MONITOR=y

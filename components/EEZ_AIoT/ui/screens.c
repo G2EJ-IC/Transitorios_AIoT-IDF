@@ -545,7 +545,7 @@ void create_screen_main3() {
                                                     lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                                                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
                                                     lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                                                    lv_label_set_text_static(obj, "WiFi (SSID).:");
+                                                    lv_label_set_text(obj, "WiFi (SSID).:");
                                                 }
                                                 {
                                                     // TextAreaSSID
@@ -567,7 +567,7 @@ void create_screen_main3() {
                                                     lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                                                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
                                                     lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                                                    lv_label_set_text_static(obj, "WiFi Passwords.:");
+                                                    lv_label_set_text(obj, "WiFi Passwords.:");
                                                 }
                                                 {
                                                     // TextAreaPassword
@@ -576,7 +576,6 @@ void create_screen_main3() {
                                                     lv_obj_set_pos(obj, 127, 28);
                                                     lv_obj_set_size(obj, 307, 40);
                                                     lv_textarea_set_max_length(obj, 128);
-                                                    lv_textarea_set_placeholder_text(obj, "Enter Passwords");
                                                     lv_textarea_set_one_line(obj, false);
                                                     lv_textarea_set_password_mode(obj, true);
                                                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
