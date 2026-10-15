@@ -2,8 +2,14 @@
 # Description: Defaults for CrowPanel 4.3" HMI (ESP32-S3-WROOM-1-N4R2:
 #              4 MB flash, 2 MB QUAD PSRAM), ESP-IDF v5.5.1, LVGL 9.x.
 # IMPORTANT: sdkconfig.defaults is only applied when "sdkconfig" does not exist.
-#            Back up and delete "sdkconfig" (or run "idf.py fullclean" after
-#            deleting it) so these values are actually used.
+#            Back up and delete "sdkconfig", then run "idf.py fullclean" and
+#            build, so these values are actually used. The boot log line
+#            "Config_AIoT: sdkconfig: CPU 240 MHz, PSRAM 80 MHz, flash QIO..."
+#            confirms them, and the build shows a warning if they are not.
+
+# --- Target chip ---------------------------------------------------------------
+# ESP32-S3 (not the classic ESP32). Same as: idf.py set-target esp32s3
+CONFIG_IDF_TARGET="esp32s3"
 
 # --- CPU ---------------------------------------------------------------------
 # Default is 160 MHz. 240 MHz = +50 % rendering speed for LVGL.
@@ -13,12 +19,13 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-# The default 1 MB app partition is too small for LVGL + EEZ + WiFi.
-# "Single factory app (large)" = 1.5 MB app. If you use your own CSV, comment
-# the next line and enable the two CUSTOM lines instead.
-CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
-# CONFIG_PARTITION_TABLE_CUSTOM=y
-# CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/partitions.csv"
+
+# --- Partition table (project folder "partitions") ------------------------------
+# The firmware (LVGL + EEZ Flow + images + WiFi) is about 1.7 MB: it does NOT
+# fit in "Single factory app (large)" (1.5 MB). partitions.csv gives a 3 MB
+# factory app: nvs 16K, phy_init 4K, factory 3M.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/partitions.csv"
 
 # --- PSRAM (R2 = 2 MB QUAD, NOT octal) ----------------------------------------
 CONFIG_SPIRAM=y
@@ -30,10 +37,17 @@ CONFIG_ESP32S3_DATA_CACHE_64KB=y
 CONFIG_ESP32S3_DATA_CACHE_LINE_64B=y
 
 # --- RGB LCD driver ------------------------------------------------------------
-# Keeps the RGB ISR alive during flash writes (NVS) and resyncs every VSYNC
-# if the DMA ever falls behind (prevents a permanently shifted image).
-CONFIG_LCD_RGB_ISR_IRAM_SAFE=y
+# RESTART_IN_VSYNC: resyncs every VSYNC if the DMA ever falls behind
+# (prevents a permanently shifted image).
 CONFIG_LCD_RGB_RESTART_IN_VSYNC=y
+# ISR_IRAM_SAFE MUST stay OFF on this board: with bounce buffers and the frame
+# buffer in PSRAM, the IRAM-safe interrupt copies from PSRAM while a flash
+# write (NVS, WiFi calibration at boot) has the cache disabled -> panic and
+# endless reboot. ESP-IDF only allows it together with PSRAM XIP.
+# CONFIG_LCD_RGB_ISR_IRAM_SAFE is not set
+
+# --- Radio: WiFi / ESP-NOW only ---------------------------------------------
+# CONFIG_BT_ENABLED is not set
 
 # --- WiFi / lwIP on core 0 (core 1 is reserved for the display + LVGL) -------
 CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_0=y
@@ -63,6 +77,9 @@ CONFIG_LV_USE_CLIB_STRING=y
 CONFIG_LV_USE_CLIB_SPRINTF=y
 # Put LVGL hot rendering functions in IRAM
 CONFIG_LV_ATTRIBUTE_FAST_MEM_USE_IRAM=y
-# TEMPORARY: FPS / CPU overlay to measure improvements. Disable afterwards.
-CONFIG_LV_USE_SYSMON=y
-CONFIG_LV_USE_PERF_MONITOR=y
+# Fonts used by the EEZ Studio screens (14 is the LVGL default font).
+# Without 16 the project does not compile (screens.c uses it).
+CONFIG_LV_FONT_MONTSERRAT_14=y
+CONFIG_LV_FONT_MONTSERRAT_16=y
+# FPS / CPU overlay: only for measuring. Change to "=y" to see it again.
+# CONFIG_LV_USE_SYSMON is not set
