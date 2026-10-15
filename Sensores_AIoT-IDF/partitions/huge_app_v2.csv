@@ -1,3 +1,11 @@
+# File: partitions/huge_app_v2.csv
+# Description: Partition table of the sensor node (4 MB flash).
+#              nvs      20 KB  WiFi / ESP-NOW calibration data
+#              otadata   8 KB  boot selection
+#              app0      3 MB  firmware
+#              spiffs  896 KB  free for future files (calibration, logs)
+#              coredump 64 KB  crash dump, read with "idf.py coredump-info"
+# Standards: ESP-IDF v5.5.1
 # Name,   Type, SubType, Offset,  Size, Flags
 nvs,      data, nvs,     0x9000,  20K,
 otadata,  data, ota,     0xe000,  8K,

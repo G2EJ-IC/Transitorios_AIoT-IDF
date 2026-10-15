@@ -17,7 +17,16 @@ CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
 CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- Partition table (project folder "partitions") ------------------------------
+# huge_app_v2.csv: nvs 20K, otadata 8K, app0 3M, spiffs 896K, coredump 64K.
+# To use another table of the folder, change only the file name below.
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/huge_app_v2.csv"
+
+# --- Core dump to flash (uses the "coredump" partition) -------------------------
+# After a crash: idf.py -p COMx coredump-info
+CONFIG_ESP_COREDUMP_ENABLE_TO_FLASH=y
 
 # --- PSRAM ---------------------------------------------------------------------
 # Not needed by the sensor node: left disabled so the same binary runs on any

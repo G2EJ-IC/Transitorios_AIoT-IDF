@@ -104,7 +104,8 @@ components/
   PCNT_AIoT/            Hardware pulse counter, flow and volume
   ESPNOW_AIoT/          ESP-NOW link
 main/                   app_main: NVS, start, console summary
-sdkconfig.defaults      Board settings (no PSRAM, WiFi / ESP-NOW radio only)
+partitions/             Partition tables (CSV); huge_app_v2.csv is the one in use
+sdkconfig.defaults      Board settings (target, partitions, no PSRAM, WiFi / ESP-NOW radio only)
 ```
 
 Every hardware library follows the same rule: **C++ class** in `src/*.cpp`,
@@ -128,6 +129,22 @@ Everything is in `components/Configuracion_AIoT/include/Sensor_Defines_AIoT.h`:
 | `AIOT_IMU_ENABLED` / `AIOT_FLOW_ENABLED` | 1 | Set to 0 if the sensor is not installed |
 
 Invalid combinations are stopped at compile time (`_Static_assert`).
+
+## Partition table
+
+`partitions/huge_app_v2.csv` (4 MB flash), selected in `sdkconfig.defaults`:
+
+| Name | Type | Offset | Size | Use |
+|---|---|---|---|---|
+| nvs | data | 0x9000 | 20 KB | WiFi / ESP-NOW data |
+| otadata | data | 0xE000 | 8 KB | Boot selection |
+| app0 | app | 0x10000 | 3 MB | Firmware (about 0.8 MB used) |
+| spiffs | data | 0x310000 | 896 KB | Free for future files |
+| coredump | data | 0x3F0000 | 64 KB | Crash dump: `idf.py -p COMx coredump-info` |
+
+To use another table of the folder, change only
+`CONFIG_PARTITION_TABLE_CUSTOM_FILENAME`, then delete `sdkconfig` and run
+`idf.py fullclean`.
 
 ## Build
 
