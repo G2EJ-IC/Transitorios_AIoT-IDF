@@ -14,5 +14,7 @@ idf_component_register(
         IO_AIoT
         WiFi_AIoT
         UARTn_AIoT
+        I2C_AIoT
+        SPI_AIoT
         EEZ_AIoT
 )
