@@ -1,11 +1,22 @@
 # Commercial Licensing Notice
 
-This repository is primarily distributed under the GNU Affero General Public License v3.0 (AGPL-3.0-or-later).
+This repository is distributed under the GNU Affero General Public License
+v3.0 or any later version (AGPL-3.0-or-later). See [`LICENSE`](LICENSE).
 
-If you want to use this project in a proprietary product, a closed-source commercial service, or another context where AGPL obligations are not acceptable, you may request a separate commercial license from the copyright holders.
+If you want to use this project in a proprietary product, a closed-source
+commercial service, or any other context where the AGPL obligations are not
+acceptable, you may request a separate commercial license from the copyright
+holder.
 
-This notice is not itself a license grant. Any commercial permission must be established through a separate written agreement signed by the copyright holders.
+This notice is not itself a license grant. Any commercial permission must be
+established through a separate written agreement signed by the copyright
+holder.
 
-## Copyright holders
+## Copyright holder
+
 - Ernesto José Guerrero González
-- Juan Paulo Delgado Ordoñez
+
+## Contact
+
+Open an issue in this repository or contact the author through the GitHub
+profile [G2EJ-IC](https://github.com/G2EJ-IC).

@@ -1,118 +1,101 @@
-# Transitorios AIoT – CrowPanel 4.3" HMI (ESP-IDF + LVGL 9 + EEZ Studio)
+# Transitorios AIoT – ESP-IDF firmware for ESP32-S3
 
-Touch HMI for the **AIoT Hydraulic Transients** project, running on the
-**Elecrow CrowPanel 4.3" ESP32 HMI** with the official Espressif framework
-(**ESP-IDF v5.5.1**, no Arduino layer), **LVGL 9.6** and a UI designed in
-**EEZ Studio** (EEZ Flow).
+Open-source firmware for a **two-board AIoT system** that monitors **hydraulic
+transients (water hammer)** in pipes. Everything is written with the official
+Espressif framework, **ESP-IDF v5.5.1**, without any Arduino layer.
 
-The main goal of this repository is to share a **smooth, stable RGB display
-configuration** for this board under ESP-IDF, which is hard to get right because
-of its tight memory bandwidth.
+The project is released to the community under the **AGPL-3.0-or-later**
+license.
 
-## Hardware
+## System architecture
 
-| Item | Value |
+```
+ ┌──────────────────────────────┐   ESP-NOW    ┌──────────────────────────────┐
+ │  SENSOR NODE                 │ ───────────▶ │  COMMUNICATION NODE          │
+ │  ESP32-S3 DevKit             │              │  CrowPanel 4.3" (ESP32-S3)   │
+ │                              │              │                              │
+ │  • Pressure transducers (ADC)│              │  • Touch HMI (LVGL 9 + EEZ)  │
+ │  • Flow meter (pulse counter)│              │  • WiFi + MQTT to the server │
+ │  • IMU accel. + gyro (I2C)   │              │  • Event logging (microSD)   │
+ └──────────────────────────────┘              └──────────────────────────────┘
+```
+
+- The **sensor node** samples fast and sends compact frames.
+- The **communication node** receives them, shows them, stores them and
+  forwards them to a broker / server for analysis.
+
+## Repository layout
+
+| Folder | Board | Role | Status |
+|---|---|---|---|
+| [`Transitorios_AIoT-IDF/`](Transitorios_AIoT-IDF/) | Elecrow CrowPanel 4.3" (ESP32-S3-WROOM-1-N4R2) | Communication node + touch HMI | Working |
+| `Sensores_AIoT-IDF/` | ESP32-S3 DevKit | Sensor node | In development |
+
+Each folder is an independent ESP-IDF project with its own `README.md`.
+
+## Hardware libraries (`*_AIoT`)
+
+Both projects share the same family of libraries. Every library follows one
+design rule:
+
+- the logic lives in a **C++ class** inside `src/*.cpp`,
+- the header exposes a **C API** (`extern "C"`) with an **opaque handle**,
+- life cycle: `create()` → `init()` → use → `destroy()`.
+
+| Library | Purpose |
 |---|---|
-| Board | Elecrow CrowPanel 4.3" ESP32 HMI (Basic) |
-| Module | ESP32-S3-WROOM-1-**N4R2** (4 MB flash, 2 MB **quad** PSRAM) |
-| Display | 480 × 272, NV3047, 16-bit parallel RGB565 |
-| Touch | Resistive, XPT2046 over SPI2 |
+| `UARTn_AIoT` | UART ports, line reader, optional RS-485 half duplex |
+| `I2C_AIoT` | I2C master bus and devices (new ESP-IDF driver) |
+| `SPI_AIoT` | SPI master bus and devices, bus sharing |
+| `ESPNOW_AIoT` | ESP32-to-ESP32 packets without a router |
+| `ADC_AIoT` | Continuous ADC with DMA and calibration |
+| `PCNT_AIoT` | Hardware pulse counter, flow and volume |
+| `SD_AIoT` | microSD (SPI + FAT) logging |
+| `MQTT_AIoT` | MQTT client with automatic reconnection |
 
-## Software
+Each library has its own `README.md` inside its component folder.
 
-| Component | Version |
+## Requirements
+
+| Tool | Version |
 |---|---|
 | ESP-IDF | v5.5.1 |
-| LVGL | 9.6.0 (managed component, see `main/idf_component.yml`) |
-| UI | EEZ Studio (LVGL 9, EEZ Flow) |
+| LVGL | 9.6.0 (managed component, communication node) |
+| EEZ Studio | LVGL 9 project (communication node UI) |
+| Target | ESP32-S3 |
 
-## Display configuration that works
-
-All values live in `components/Configuracion_AIoT/include/System_Defines_AIoT.h`.
-
-| Setting | Value | Why |
-|---|---|---|
-| Pixel clock | **6 MHz** (~38 Hz refresh) | Same as the Elecrow factory firmware; lowers PSRAM traffic |
-| Porches H / V (back, front, pulse) | 43, 8, 4 / 12, 8, 4 | Panel timing |
-| Frame buffers | **1** in PSRAM | LVGL PARTIAL mode only ever writes the current buffer |
-| Bounce buffers | **8 lines** (34 chunks per frame) | Absorbs PSRAM contention from WiFi/flash |
-| LVGL draw buffer | 48 lines, internal SRAM, PARTIAL mode | Fast rendering, ~6 passes per full screen |
-| LVGL refresh period | 33 ms (~30 FPS) | Keeps the PSRAM write stream below saturation |
-| `CONFIG_LCD_RGB_RESTART_IN_VSYNC` | y | Any DMA hiccup is fixed on the next frame |
-| CPU | 240 MHz | |
-| Flash | QIO 80 MHz | Images and fonts are read from flash |
-
-### Task / core layout
-
-| Core 0 | Core 1 |
-|---|---|
-| WiFi, lwIP, system event loop, `esp_timer` | `ui_task`: RGB panel init, touch, LVGL, EEZ Flow |
-| `app_main` (NVS, backlight PWM, WiFi start) | RGB panel interrupts (bounce-buffer refill) |
-
-The panel is created **inside** `ui_task`, so its interrupts are allocated on
-core 1, away from the WiFi interrupts on core 0.
-
-## Lessons learned (pitfalls on this board)
-
-1. **Bounce buffer height must give an EVEN number of chunks per frame** when
-   `CONFIG_LCD_RGB_RESTART_IN_VSYNC` is enabled. With 16 lines
-   (272 / 16 = 17, odd) every other frame is shifted by 16 lines and the image
-   looks doubled. Valid values for 272 lines: 1, 2, 4, **8**, 34, 68, 136.
-   A `_Static_assert` in `Configuracion_AIoT.c` enforces this.
-2. **No bounce buffers (direct GDMA from PSRAM) drifts** on this board once WiFi
-   is active: flash and the quad PSRAM share the same bus.
-3. **Refreshing LVGL at 20 ms (50 FPS) saturates the quad PSRAM** during
-   full-screen animations. 33 ms is the safe value.
-4. Prefer **OVER_LEFT / OVER_RIGHT** screen transitions, or keep FADE short
-   (≤ 200 ms): a fade blends two full screens on every frame.
-5. The Main3 **tabview swipe is disabled** in `ui_apply_runtime_tweaks()`
-   (`main/main_AIoT.c`): with a resistive panel any tiny stylus drag slid the
-   tabs. The tweak lives outside the EEZ files so it survives code regeneration.
-6. XPT2046 SPI clock: **2 MHz** (datasheet maximum is 2.5 MHz), pressure (Z)
-   check and median filtering are used to avoid phantom touches.
-
-## Project structure
-
-```
-components/
-  Configuracion_AIoT/   RGB panel, XPT2046 touch, LVGL port, LVGL mutex
-  EEZ_AIoT/             UI generated by EEZ Studio
-  IO_AIoT/              Backlight PWM and auto-suspend
-  WiFi_AIoT/            WiFi station
-  UARTn_AIoT/           UART helper
-  token/                Private credentials (NOT committed, see below)
-main/                   app_main and the UI task
-sdkconfig.defaults      Board and performance settings
-```
-
-## Build
+## Quick start
 
 ```bash
+cd Transitorios_AIoT-IDF
 idf.py set-target esp32s3
 idf.py build
 idf.py -p COMx flash monitor
 ```
 
-`sdkconfig.defaults` is only applied when `sdkconfig` does not exist yet.
-After changing it, delete `sdkconfig` and run `idf.py fullclean`.
-
-Expected boot log line:
-
-```
-Config_AIoT: Init: PCLK 6000000 Hz, bounce 8 lines, LVGL buffer 48 lines, core 1
-```
-
-## Credentials
-
-`components/token/include/token.h` is ignored by git. Copy
-`components/token/include/token.h.example` to `token.h` and fill in your own
-values.
-
-## Authors
-
-- Ing. Ernesto José Guerrero González – Universidad Distrital Francisco José de Caldas, Bogotá, Colombia
-- Juan Paulo Delgado Ordoñez – Universidad Distrital Francisco José de Caldas, Bogotá, Colombia
+Private data (WiFi, tokens) is never committed: copy
+`components/token/include/token.h.example` to `token.h` inside each project and
+fill in your own values.
 
 ## License
 
-See `LICENSE`.
+Copyright (C) 2026 Ernesto José Guerrero González
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version. See [`LICENSE`](LICENSE).
+
+For use in proprietary or closed-source products, see
+[`COMMERCIAL-LICENSE-NOTICE.md`](COMMERCIAL-LICENSE-NOTICE.md).
+
+## Contributing
+
+Issues and pull requests are welcome. By contributing you agree that your
+contribution is distributed under the same AGPL-3.0-or-later license.
+
+## Author
+
+**Ing. Ernesto José Guerrero González**
+Universidad Distrital Francisco José de Caldas – Bogotá, Colombia
+GitHub: [G2EJ-IC](https://github.com/G2EJ-IC)
