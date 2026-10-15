@@ -1,5 +1,6 @@
 # File: .gitignore
 # Description: Git ignore rules for every ESP-IDF v5.5 project in this repository.
+# Note: no quotes in this file; spaces in names are written as they are.
 
 # Build output
 **/build/
@@ -13,6 +14,12 @@
 
 # Private credentials (WiFi, tokens, etc.): commit only token.h.example
 **/components/token/include/token.h
+
+# Personal tools and project dumps (local use only, any folder)
+**/Exportar_Proyecto.ps1
+**/Script de PowerShell.txt
+**/todo_el_proyecto*.txt
+**/G2EJ-IC.txt
 
 # Editor / OS files
 .vscode/
