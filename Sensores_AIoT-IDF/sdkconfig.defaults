@@ -4,6 +4,11 @@
 # IMPORTANT: sdkconfig.defaults is only applied when "sdkconfig" does not exist.
 #            Delete "sdkconfig" and run "idf.py fullclean" after changing it.
 
+# --- Target chip ---------------------------------------------------------------
+# ESP32-S3 (not the classic ESP32). Used when "sdkconfig" does not exist yet.
+# Command line equivalent: idf.py set-target esp32s3
+CONFIG_IDF_TARGET="esp32s3"
+
 # --- CPU ---------------------------------------------------------------------
 CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 
