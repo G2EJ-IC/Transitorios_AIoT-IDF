@@ -1,0 +1,36 @@
+# File: sdkconfig.defaults
+# Description: Defaults for the Transitorios AIoT SENSOR NODE
+#              (ESP32-S3-WROOM-1 DevKit), ESP-IDF v5.5.1.
+# IMPORTANT: sdkconfig.defaults is only applied when "sdkconfig" does not exist.
+#            Delete "sdkconfig" and run "idf.py fullclean" after changing it.
+
+# --- CPU ---------------------------------------------------------------------
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
+
+# --- Flash ---------------------------------------------------------------------
+# 4 MB is enough and also works on 8 MB / 16 MB modules (N8R8, N16R8...).
+CONFIG_ESPTOOLPY_FLASHMODE_QIO=y
+CONFIG_ESPTOOLPY_FLASHFREQ_80M=y
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
+
+# --- PSRAM ---------------------------------------------------------------------
+# Not needed by the sensor node: left disabled so the same binary runs on any
+# module (no PSRAM, quad PSRAM or octal PSRAM).
+# CONFIG_SPIRAM is not set
+
+# --- Radio: WiFi / ESP-NOW only ---------------------------------------------
+# CONFIG_BT_ENABLED is not set
+
+# --- WiFi / ESP-NOW on core 0 (core 1 is reserved for the acquisition task) ---
+CONFIG_ESP_WIFI_TASK_PINNED_TO_CORE_0=y
+CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
+# The node never connects to an access point: keep the radio fully awake
+# CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE is not set
+
+# --- FreeRTOS -------------------------------------------------------------------
+# 1 ms tick: precise delays in the sensor drivers
+CONFIG_FREERTOS_HZ=1000
+
+# --- Compiler -------------------------------------------------------------------
+CONFIG_COMPILER_OPTIMIZATION_PERF=y

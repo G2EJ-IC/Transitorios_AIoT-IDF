@@ -14,13 +14,14 @@ license.
  │  SENSOR NODE                 │ ───────────▶ │  COMMUNICATION NODE          │
  │  ESP32-S3 DevKit             │              │  CrowPanel 4.3" (ESP32-S3)   │
  │                              │              │                              │
- │  • Pressure transducers (ADC)│              │  • Touch HMI (LVGL 9 + EEZ)  │
+ │  • 4-20 mA pressure (ADC)    │              │  • Touch HMI (LVGL 9 + EEZ)  │
  │  • Flow meter (pulse counter)│              │  • WiFi + MQTT to the server │
- │  • IMU accel. + gyro (I2C)   │              │  • Event logging (microSD)   │
+ │  • MPU-6050 accel+gyro (I2C) │              │  • Event logging (microSD)   │
  └──────────────────────────────┘              └──────────────────────────────┘
 ```
 
-- The **sensor node** samples fast and sends compact frames.
+- The **sensor node** samples pressure and IMU together at 500 Hz and sends
+  100 frames/s (5 samples each, CRC-16) defined in `Frame_AIoT.h`.
 - The **communication node** receives them, shows them, stores them and
   forwards them to a broker / server for analysis.
 
@@ -29,7 +30,7 @@ license.
 | Folder | Board | Role | Status |
 |---|---|---|---|
 | [`Transitorios_AIoT-IDF/`](Transitorios_AIoT-IDF/) | Elecrow CrowPanel 4.3" (ESP32-S3-WROOM-1-N4R2) | Communication node + touch HMI | Working |
-| `Sensores_AIoT-IDF/` | ESP32-S3 DevKit | Sensor node | In development |
+| [`Sensores_AIoT-IDF/`](Sensores_AIoT-IDF/) | ESP32-S3 DevKit (ESP32-S3-WROOM-1) | Sensor node | Compiles, hardware test pending |
 
 Each folder is an independent ESP-IDF project with its own `README.md`.
 
@@ -52,6 +53,11 @@ design rule:
 | `PCNT_AIoT` | Hardware pulse counter, flow and volume |
 | `SD_AIoT` | microSD (SPI + FAT) logging |
 | `MQTT_AIoT` | MQTT client with automatic reconnection |
+| `MPU6050_AIoT` | MPU-6050 IMU driver (on top of `I2C_AIoT`) |
+| `ADS1115_AIoT` | ADS1115 16-bit external ADC driver (on top of `I2C_AIoT`) |
+
+`Frame_AIoT` (header only) is the ESP-NOW data frame shared by both boards:
+it must be identical in both projects.
 
 Each library has its own `README.md` inside its component folder.
 
@@ -67,15 +73,15 @@ Each library has its own `README.md` inside its component folder.
 ## Quick start
 
 ```bash
-cd Transitorios_AIoT-IDF
+cd Transitorios_AIoT-IDF        # or: cd Sensores_AIoT-IDF
 idf.py set-target esp32s3
 idf.py build
 idf.py -p COMx flash monitor
 ```
 
-Private data (WiFi, tokens) is never committed: copy
-`components/token/include/token.h.example` to `token.h` inside each project and
-fill in your own values.
+Private data (WiFi, tokens) is never committed: in the CrowPanel project copy
+`components/token/include/token.h.example` to `token.h` and fill in your own
+values. The sensor node needs no credentials.
 
 ## License
 
