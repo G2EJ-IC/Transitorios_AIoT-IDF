@@ -260,7 +260,7 @@ void create_screen_main1() {
                                     lv_obj_t *obj = lv_obj_create(parent_obj);
                                     objects.panel_nombre = obj;
                                     lv_obj_set_pos(obj, 62, 12);
-                                    lv_obj_set_size(obj, 320, 56);
+                                    lv_obj_set_size(obj, 320, 52);
                                     lv_obj_remove_flag(obj, LV_OBJ_FLAG_CLICK_FOCUSABLE|LV_OBJ_FLAG_GESTURE_BUBBLE|LV_OBJ_FLAG_PRESS_LOCK|LV_OBJ_FLAG_SCROLLABLE|LV_OBJ_FLAG_SCROLL_CHAIN_HOR|LV_OBJ_FLAG_SCROLL_CHAIN_VER|LV_OBJ_FLAG_SCROLL_ELASTIC|LV_OBJ_FLAG_SCROLL_MOMENTUM|LV_OBJ_FLAG_SCROLL_WITH_ARROW|LV_OBJ_FLAG_SNAPPABLE);
                                     lv_obj_set_style_bg_color(obj, lv_color_hex(0xc8c8c8), LV_PART_MAIN | LV_STATE_DEFAULT);
                                     lv_obj_set_style_border_color(obj, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -274,7 +274,7 @@ void create_screen_main1() {
                                             lv_obj_set_size(obj, LV_PCT(115), LV_PCT(250));
                                             lv_obj_set_style_align(obj, LV_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
                                             lv_obj_set_style_text_align(obj, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
-                                            lv_label_set_text_static(obj, "ERNESTO JOSE GUERRERO GONZALEZ\nJUAN PAULO DELGADO ORDONEZ\nAIoT Transitorios Hidraulicos");
+                                            lv_label_set_text_static(obj, "ERNESTO JOSE GUERRERO GONZALEZ\nAIoT Transitorios Hidraulicos");
                                         }
                                     }
                                 }
@@ -576,7 +576,6 @@ void create_screen_main3() {
                                                     lv_obj_set_pos(obj, 127, 28);
                                                     lv_obj_set_size(obj, 307, 40);
                                                     lv_textarea_set_max_length(obj, 128);
-                                                    lv_textarea_set_text(obj, "(11291104BG397)**397");
                                                     lv_textarea_set_one_line(obj, false);
                                                     lv_textarea_set_password_mode(obj, true);
                                                     lv_obj_set_style_text_font(obj, &lv_font_montserrat_14, LV_PART_MAIN | LV_STATE_DEFAULT);
