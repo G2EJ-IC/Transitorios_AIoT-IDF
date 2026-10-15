@@ -24,3 +24,9 @@
 *.code-workspace
 .DS_Store
 Thumbs.db
+
+# Personal tools and project dumps (local use only, any folder)
+**/Exportar_Proyecto.ps1
+**/Script de PowerShell.txt
+**/todo_el_proyecto*.txt
+**/G2EJ-IC.txt
