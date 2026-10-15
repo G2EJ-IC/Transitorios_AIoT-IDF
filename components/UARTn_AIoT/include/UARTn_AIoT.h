@@ -19,6 +19,8 @@
  *  - Pin value -1 keeps the default pin of that UART.
  *  - Frame format 8N1, no hardware flow control, RX buffer 2048 bytes.
  *  - Thread safe: one internal mutex per object.
+ *  - RS-485 (e.g. Modbus RTU transmitters): call UARTn_set_rs485() before
+ *    UARTn_init(); the driver then drives the transceiver DE/RE pin itself.
  */
 #ifndef UARTN_AIOT_H
 #define UARTN_AIOT_H
@@ -82,6 +84,16 @@ void UARTn_set_timeout(UARTn_handle_t handle, uint32_t timeout_ms);
  * @brief Changes the baud rate (works before and after UARTn_init).
  */
 esp_err_t UARTn_set_baud_rate(UARTn_handle_t handle, int baud_rate);
+
+/**
+ * @brief Enables RS-485 half-duplex mode (call BEFORE UARTn_init).
+ *        The UART hardware raises de_pin while transmitting and lowers it to
+ *        receive. Wire it to DE and /RE (joined) of a MAX485/SP3485-type
+ *        transceiver. The receiver is off while sending, so there is no echo.
+ * @param de_pin GPIO connected to DE + /RE of the transceiver
+ * @return ESP_OK, ESP_ERR_INVALID_ARG or ESP_ERR_INVALID_STATE (already init)
+ */
+esp_err_t UARTn_set_rs485(UARTn_handle_t handle, int de_pin);
 
 /* -------------------------------------------------------------------------- */
 /* Transmission                                                                */

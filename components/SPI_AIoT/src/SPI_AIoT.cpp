@@ -42,8 +42,8 @@ public:
     // Constructor: stores the configuration only
     SPI_AIoT_Device(int host, int cs_pin, uint32_t clock_hz, uint8_t mode)
         : _host((spi_host_device_t)host), _cs_pin(cs_pin), _clock_hz(clock_hz),
-            _mode(mode), _dev(nullptr), _lock(xSemaphoreCreateRecursiveMutex()),
-            _bus_locked(false) {}
+          _mode(mode), _dev(nullptr), _lock(xSemaphoreCreateRecursiveMutex()),
+          _bus_locked(false) {}
 
     // Destructor: releases and detaches only what this object took
     ~SPI_AIoT_Device() {
@@ -79,7 +79,7 @@ public:
             return err;
         }
         ESP_LOGI(TAG, "Device on SPI%d -> CS:%d @ %u Hz, mode %u",
-                    (int)_host + 1, _cs_pin, (unsigned)_clock_hz, (unsigned)_mode);
+                 (int)_host + 1, _cs_pin, (unsigned)_clock_hz, (unsigned)_mode);
         return ESP_OK;
     }
 
@@ -213,7 +213,7 @@ esp_err_t SPI_AIoT_bus_free(int host) {
 SPI_AIoT_handle_t SPI_AIoT_create(int host, int cs_pin, uint32_t clock_hz, uint8_t mode) {
     if (!isValidHost(host) || clock_hz == 0 || mode > 3) {
         ESP_LOGE(TAG, "Invalid device arguments (host %d, %u Hz, mode %u)",
-                    host, (unsigned)clock_hz, (unsigned)mode);
+                 host, (unsigned)clock_hz, (unsigned)mode);
         return nullptr;
     }
     SPI_AIoT_Device *obj = new (std::nothrow) SPI_AIoT_Device(host, cs_pin, clock_hz, mode);

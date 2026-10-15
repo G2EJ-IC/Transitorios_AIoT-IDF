@@ -1,5 +1,6 @@
 # File: main/CMakeLists.txt
 # Description: Component registration with dependencies.
+#              REQUIRES gives main access to the headers of each library.
 # Standards: ESP-IDF v5.5.1
 
 idf_component_register(
@@ -13,8 +14,13 @@ idf_component_register(
         Configuracion_AIoT
         IO_AIoT
         WiFi_AIoT
+        EEZ_AIoT
         UARTn_AIoT
         I2C_AIoT
         SPI_AIoT
-        EEZ_AIoT
+        ESPNOW_AIoT
+        ADC_AIoT
+        PCNT_AIoT
+        SD_AIoT
+        MQTT_AIoT
 )

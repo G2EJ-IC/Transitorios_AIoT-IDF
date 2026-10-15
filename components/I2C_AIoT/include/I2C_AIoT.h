@@ -57,7 +57,7 @@ typedef struct I2C_AIoT_Instance    *I2C_AIoT_handle_t;
  * @param scl_pin          SCL GPIO
  * @param internal_pullup  true = enable the internal ~45 kOhm pull-ups
  *                         (enough for short wires at 100 kHz; use external
- *                         2,2-4,7 kOhm resistors for 400 kHz or long cables)
+ *                         2.2-4.7 kOhm resistors for 400 kHz or long cables)
  * @return Handle, or NULL on invalid arguments / no memory.
  */
 I2C_AIoT_bus_t I2C_AIoT_bus_create(int port, int sda_pin, int scl_pin, bool internal_pullup);

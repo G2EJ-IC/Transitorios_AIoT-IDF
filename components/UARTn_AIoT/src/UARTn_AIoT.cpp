@@ -13,6 +13,7 @@
  *    called twice; the destructor only deletes a driver it installed.
  *  - Thread safe (mutex), binary write, read_bytes, available, baud change.
  *  - new (std::nothrow): no abort if memory runs out; arguments validated.
+ *  - Optional RS-485 half-duplex mode (DE/RE pin driven by the UART hardware).
  */
 #include "UARTn_AIoT.h"
 
@@ -34,6 +35,7 @@ private:
     int               _tx_pin;
     int               _rx_pin;
     int               _baud_rate;
+    int               _de_pin;                              // RS-485 DE/RE pin, -1 = normal UART
     uint32_t          _timeout_ms;
     bool              _installed;
     SemaphoreHandle_t _lock;                                // serializes tasks
@@ -67,6 +69,7 @@ public:
           _tx_pin((tx_pin < 0) ? UART_PIN_NO_CHANGE : tx_pin),
           _rx_pin((rx_pin < 0) ? UART_PIN_NO_CHANGE : rx_pin),
           _baud_rate(baud_rate),
+          _de_pin(-1),
           _timeout_ms(UARTN_AIOT_DEFAULT_TIMEOUT_MS),
           _installed(false),
           _lock(xSemaphoreCreateMutex()),
@@ -115,10 +118,15 @@ public:
             return err;
         }
 
-        // 2. Parameters and 3. pins (undo the installation if something fails)
+        // 2. Parameters, 3. pins and 4. mode (undo the installation if something fails)
+        //    In RS-485 mode the RTS signal of the UART drives the DE/RE pin.
+        const int rts_pin = (_de_pin >= 0) ? _de_pin : UART_PIN_NO_CHANGE;
         err = uart_param_config(_uart_num, &cfg);
         if (err == ESP_OK) {
-            err = uart_set_pin(_uart_num, _tx_pin, _rx_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+            err = uart_set_pin(_uart_num, _tx_pin, _rx_pin, rts_pin, UART_PIN_NO_CHANGE);
+        }
+        if (err == ESP_OK && _de_pin >= 0) {
+            err = uart_set_mode(_uart_num, UART_MODE_RS485_HALF_DUPLEX);
         }
         if (err != ESP_OK) {
             ESP_LOGE(TAG, "UART%d configuration error: %s", (int)_uart_num, esp_err_to_name(err));
@@ -128,8 +136,26 @@ public:
 
         _installed = true;
         _line_len  = 0;
-        ESP_LOGI(TAG, "UART%d started -> TX:%d RX:%d @ %d baud",
-                 (int)_uart_num, _tx_pin, _rx_pin, _baud_rate);
+        if (_de_pin >= 0) {
+            ESP_LOGI(TAG, "UART%d started (RS-485) -> TX:%d RX:%d DE:%d @ %d baud",
+                     (int)_uart_num, _tx_pin, _rx_pin, _de_pin, _baud_rate);
+        } else {
+            ESP_LOGI(TAG, "UART%d started -> TX:%d RX:%d @ %d baud",
+                     (int)_uart_num, _tx_pin, _rx_pin, _baud_rate);
+        }
+        return ESP_OK;
+    }
+
+    // RS-485 half-duplex: must be selected before begin()
+    esp_err_t setRs485(int de_pin) {
+        if (de_pin < 0) {
+            return ESP_ERR_INVALID_ARG;
+        }
+        if (_installed) {
+            ESP_LOGE(TAG, "Call UARTn_set_rs485() before UARTn_init()");
+            return ESP_ERR_INVALID_STATE;
+        }
+        _de_pin = de_pin;
         return ESP_OK;
     }
 
@@ -288,6 +314,11 @@ void UARTn_set_timeout(UARTn_handle_t handle, uint32_t timeout_ms) {
 esp_err_t UARTn_set_baud_rate(UARTn_handle_t handle, int baud_rate) {
     UARTn_AIoT *obj = toObj(handle);
     return obj ? obj->setBaudRate(baud_rate) : ESP_ERR_INVALID_ARG;
+}
+
+esp_err_t UARTn_set_rs485(UARTn_handle_t handle, int de_pin) {
+    UARTn_AIoT *obj = toObj(handle);
+    return obj ? obj->setRs485(de_pin) : ESP_ERR_INVALID_ARG;
 }
 
 void UARTn_write(UARTn_handle_t handle, const char *msg) {

@@ -59,7 +59,7 @@ I2C_AIoT_read_regs(imu, 0x3B, raw, sizeof(raw));   /* accel + temp + gyro */
 ## Notes
 
 - Internal pull-ups (~45 kOhm) are only enough for short wires at 100 kHz.
-  For 400 kHz or cables use external 2,2-4,7 kOhm resistors to 3,3 V.
+  For 400 kHz or cables use external 2.2-4.7 kOhm resistors to 3.3 V.
 - The driver serializes transfers per bus: different tasks may use different
   devices of the same bus.
 - Add `I2C_AIoT` to the `REQUIRES` list of the component that uses it.

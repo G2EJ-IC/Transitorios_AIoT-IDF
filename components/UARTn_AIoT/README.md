@@ -23,6 +23,7 @@ destroy() -> C++ destructor (releases only what the object took)
 | `UARTn_init(h)` | Installs the driver (8N1, RX buffer 2048 B) |
 | `UARTn_set_timeout(h, ms)` | Read timeout (default 1000 ms, 0 = non-blocking) |
 | `UARTn_set_baud_rate(h, baud)` | Changes the baud rate, before or after init |
+| `UARTn_set_rs485(h, de_pin)` | RS-485 half-duplex mode (before init); the UART drives the DE/RE pin |
 | `UARTn_write(h, str)` | Writes a null-terminated string |
 | `UARTn_write_bytes(h, data, len)` | Writes raw bytes (binary safe) |
 | `UARTn_read_until(h, term, buf, size)` | Reads one line; returns 0 while the line is incomplete (partial data is kept, nothing is lost) |
@@ -46,6 +47,23 @@ if (UARTn_init(gsm) == ESP_OK) {
     if (n > 0) { /* line holds the answer */ }
 }
 ```
+
+## RS-485 example (Modbus RTU transmitter through a MAX485)
+
+```c
+UARTn_handle_t bus485 = UARTn_create(2, TX_PIN, RX_PIN, 9600);
+UARTn_set_rs485(bus485, DE_PIN);        /* DE and /RE joined on DE_PIN */
+UARTn_set_timeout(bus485, 200);
+UARTn_init(bus485);
+
+const uint8_t req[8] = { 0x01, 0x03, 0x00, 0x00, 0x00, 0x02, 0xC4, 0x0B };
+UARTn_write_bytes(bus485, req, sizeof(req));      /* read 2 holding registers */
+uint8_t ans[9];
+int n = UARTn_read_bytes(bus485, ans, sizeof(ans));
+```
+
+For a full Modbus RTU stack, Espressif publishes the `espressif/esp-modbus`
+component, which can run on top of the same UART.
 
 ## Notes
 
