@@ -416,7 +416,7 @@
                           "left": 62,
                           "top": 12,
                           "width": 320,
-                          "height": 52,
+                          "height": 51,
                           "customInputs": [],
                           "customOutputs": [],
                           "style": {
@@ -1677,7 +1677,7 @@
                                     }
                                   },
                                   "groupIndex": 0,
-                                  "text": "",
+                                  "text": "(11291104BG397)**397",
                                   "textType": "literal",
                                   "placeholder": "",
                                   "oneLineMode": false,

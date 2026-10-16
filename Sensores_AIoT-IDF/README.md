@@ -43,7 +43,9 @@ with the official Espressif framework (**ESP-IDF v5.5.1**), no Arduino layer.
 | Pressure 2 | 5 | ADC1_CH4, 150 Ohm shunt to GND |
 | I2C SDA | 11 | MPU-6050 (and ADS1115 if used) |
 | I2C SCL | 12 | |
-| Flow pulses | 18 | Internal pull-up, open-collector output |
+| Flow pulses | 14 | Internal pull-up, open-collector output |
+| UART1 TX (link) | 17 | To CrowPanel UART1 IO18 (RX) |
+| UART1 RX (link) | 18 | From CrowPanel UART1 IO17 (TX), join GND too |
 
 4-20 mA loop (two-wire transducer):
 
@@ -103,6 +105,11 @@ components/
   I2C_AIoT/             I2C master bus and devices
   PCNT_AIoT/            Hardware pulse counter, flow and volume
   ESPNOW_AIoT/          ESP-NOW link
+  Enlace_AIoT/          UART "hello" link test with the CrowPanel (shared)
+  UARTn_AIoT/           UART ports, line reader, optional RS-485 (spare)
+  SPI_AIoT/             SPI master bus and devices (spare)
+  SD_AIoT/              microSD (SPI + FAT) logging (spare)
+  MQTT_AIoT/            MQTT client (spare, needs a WiFi access point)
 main/                   app_main: NVS, start, console summary
 partitions/             Partition tables (CSV); huge_app_v2.csv is the one in use
 sdkconfig.defaults      Board settings (target, partitions, no PSRAM, WiFi / ESP-NOW radio only)

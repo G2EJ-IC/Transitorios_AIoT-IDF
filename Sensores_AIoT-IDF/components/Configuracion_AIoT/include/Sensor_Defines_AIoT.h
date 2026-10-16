@@ -12,7 +12,9 @@
  *   Pressure 2 (4-20 mA)       5      ADC1_CH4, 150 Ohm shunt to GND
  *   I2C SDA (MPU-6050/ADS1115) 11
  *   I2C SCL                    12
- *   Flow meter pulses          18     internal pull-up (open collector)
+ *   Flow meter pulses          14     internal pull-up (open collector)
+ *   UART1 TX -> CrowPanel RX   17     link test (Enlace_AIoT)
+ *   UART1 RX <- CrowPanel TX   18     link test (Enlace_AIoT)
  *
  * Pins to avoid on the ESP32-S3: 0, 3, 45, 46 (strapping), 19-20 (USB),
  * 26-32 (flash), 33-37 (octal PSRAM on N8R8 / N16R8 modules).
@@ -108,10 +110,21 @@
  * Flow meter (pulse output)
  * ========================================================================== */
 #define AIOT_FLOW_ENABLED            1
-#define AIOT_FLOW_GPIO               18
+#define AIOT_FLOW_GPIO               14       /* GPIO 17/18 are the UART link */
 #define AIOT_FLOW_GLITCH_NS          1000     /* ignore pulses shorter than 1 us */
 #define AIOT_FLOW_K_PULSES_PER_L     450.0f   /* e.g. YF-S201: f = 7.5 * Q[L/min] -> 450 /L */
 #define AIOT_FLOW_UPDATE_MS          500      /* flow averaging window */
+
+/* ==========================================================================
+ * UART link test with the CrowPanel (Enlace_AIoT, crossed wiring + GND)
+ * ========================================================================== */
+#define AIOT_LINK_ENABLED            1
+#define AIOT_LINK_UART_NUM           1        /* UART0 is the USB console */
+#define AIOT_LINK_TX_PIN             17       /* -> CrowPanel IO18 (RX) */
+#define AIOT_LINK_RX_PIN             18       /* <- CrowPanel IO17 (TX) */
+#define AIOT_LINK_BAUD               115200
+#define AIOT_LINK_PERIOD_MS          2000
+#define AIOT_LINK_GREETING           "Hola soy un ESP32-S3"
 
 /* ==========================================================================
  * Compile-time checks
@@ -124,6 +137,8 @@ _Static_assert(AIOT_PRESSURE_SOURCE != AIOT_PRESSURE_SOURCE_ADS1115 || AIOT_PRES
                "ADS1115 continuous mode reads one transducer: set AIOT_PRESSURE_CHANNELS to 1");
 _Static_assert(AIOT_PRESSURE_SOURCE != AIOT_PRESSURE_SOURCE_ADS1115 || AIOT_SAMPLE_RATE_HZ <= 860,
                "ADS1115 maximum rate is 860 samples per second");
+_Static_assert(AIOT_FLOW_GPIO != AIOT_LINK_TX_PIN && AIOT_FLOW_GPIO != AIOT_LINK_RX_PIN,
+               "The flow meter pin cannot be one of the UART link pins");
 _Static_assert(AIOT_ADC_TOTAL_RATE_HZ / AIOT_PRESSURE_CHANNELS >= AIOT_SAMPLE_RATE_HZ,
                "ADC rate per channel must be at least AIOT_SAMPLE_RATE_HZ");
 

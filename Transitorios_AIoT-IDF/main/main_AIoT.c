@@ -24,6 +24,11 @@
  *  change only with the tab bar buttons, instantly (LVGL uses LV_ANIM_OFF).
  *  Done here and not in the EEZ files, because EEZ regenerates screens.c.
  *
+ * Revision 8 (UART link test with the sensor node):
+ *  Enlace_AIoT answers "Hola soy un CrowPanel 4,3 inch" to every line that
+ *  arrives on the UART1 connector (TX IO17, RX IO18). Its task runs on core 0
+ *  with low priority: the display, LVGL and sdkconfig are not touched.
+ *
  * Start-up order (same as the original program):
  *   1. app_main  : NVS
  *   2. ui_task   : Configuracion_AIoT_Init()  (LCD + touch + LVGL on core 1)
@@ -44,6 +49,7 @@
 #include "System_Defines_AIoT.h"
 #include "WiFi_AIoT.h"
 #include "IO_AIoT.h"
+#include "Enlace_AIoT.h"
 #include "ui.h"
 #include "screens.h"
 #include "lvgl.h"
@@ -187,6 +193,21 @@ void app_main(void)
 
     /* 4. WiFi station (WiFi task is pinned to core 0 by default) */
     wifi_init_sta();
+
+    /* 4b. UART link test with the sensor node (UART1 connector, core 0) */
+    const Enlace_AIoT_config_t link_cfg = {
+        .role      = ENLACE_AIOT_RESPONDER,
+        .uart_num  = 1,
+        .tx_pin    = 17,                  /* CrowPanel UART1 connector TX */
+        .rx_pin    = 18,                  /* CrowPanel UART1 connector RX */
+        .baud_rate = 115200,
+        .greeting  = "Hola soy un CrowPanel 4,3 inch",
+        .period_ms = 0,                   /* not used by the responder */
+        .task_core = 0,
+    };
+    if (Enlace_AIoT_Start(&link_cfg) != ESP_OK) {
+        ESP_LOGE(TAG, "UART link test not started");
+    }
 
     /* 5. Let the UI task build the screens and enter its loop */
     xSemaphoreGive(s_sys_ready_sem);

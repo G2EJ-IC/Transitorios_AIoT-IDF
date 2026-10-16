@@ -42,6 +42,11 @@ CONFIG_LWIP_TCPIP_TASK_AFFINITY_CPU0=y
 # The node never connects to an access point: keep the radio fully awake
 # CONFIG_ESP_WIFI_STA_DISCONNECTED_PM_ENABLE is not set
 
+# --- FAT file system (SD_AIoT) --------------------------------------------------
+# Long file names (e.g. "events_2026-10-15.csv"); without it only 8.3 names.
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
 # --- FreeRTOS -------------------------------------------------------------------
 # 1 ms tick: precise delays in the sensor drivers
 CONFIG_FREERTOS_HZ=1000

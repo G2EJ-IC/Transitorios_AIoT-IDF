@@ -23,4 +23,5 @@ idf_component_register(
         PCNT_AIoT
         SD_AIoT
         MQTT_AIoT
+        Enlace_AIoT
 )

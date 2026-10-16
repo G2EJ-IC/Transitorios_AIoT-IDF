@@ -1,7 +1,8 @@
 /*
  * File: main/main_AIoT.c
  * Description: Entry point of the SENSOR NODE of Transitorios AIoT.
- *              Initializes NVS, starts the acquisition engine
+ *              Initializes NVS, starts the UART link test with the CrowPanel
+ *              (Enlace_AIoT), starts the acquisition engine
  *              (Adquisicion_AIoT) and prints a summary every few seconds.
  * Author: Ing. Ernesto José Guerrero González
  * Standards: ESP-IDF v5.5.1, C11. English comments.
@@ -16,6 +17,7 @@
 #include "Sensor_Defines_AIoT.h"
 #include "Frame_AIoT.h"
 #include "Adquisicion_AIoT.h"
+#include "Enlace_AIoT.h"
 
 static const char *TAG = "main";
 
@@ -38,13 +40,13 @@ static void status_to_text(uint16_t st, char *buf, size_t len)
         return;
     }
     snprintf(buf, len, "%s%s%s%s%s%s%s",
-             (st & AIOT_STATUS_P1_FAULT)    ? "P1 " : "",
-             (st & AIOT_STATUS_P2_FAULT)    ? "P2 " : "",
-             (st & AIOT_STATUS_IMU_FAULT)   ? "IMU " : "",
-             (st & AIOT_STATUS_FLOW_FAULT)  ? "FLOW " : "",
-             (st & AIOT_STATUS_ADC_OVERRUN) ? "ADC_OVR " : "",
-             (st & AIOT_STATUS_TIMING_LATE) ? "LATE " : "",
-             (st & AIOT_STATUS_TX_DROPPED)  ? "TX_DROP " : "");
+                (st & AIOT_STATUS_P1_FAULT)    ? "P1 " : "",
+                (st & AIOT_STATUS_P2_FAULT)    ? "P2 " : "",
+                (st & AIOT_STATUS_IMU_FAULT)   ? "IMU " : "",
+                (st & AIOT_STATUS_FLOW_FAULT)  ? "FLOW " : "",
+                (st & AIOT_STATUS_ADC_OVERRUN) ? "ADC_OVR " : "",
+                (st & AIOT_STATUS_TIMING_LATE) ? "LATE " : "",
+                (st & AIOT_STATUS_TX_DROPPED)  ? "TX_DROP " : "");
 }
 
 void app_main(void)
@@ -54,6 +56,24 @@ void app_main(void)
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     ESP_LOGI(TAG, "Transitorios AIoT - sensor node %d - MAC " MACSTR, AIOT_NODE_ID, MAC2STR(mac));
+
+#if AIOT_LINK_ENABLED
+    /* UART link test: "Hola soy un ESP32-S3" -> CrowPanel, answer printed here */
+    const Enlace_AIoT_config_t link_cfg = {
+        .role      = ENLACE_AIOT_INITIATOR,
+        .uart_num  = AIOT_LINK_UART_NUM,
+        .tx_pin    = AIOT_LINK_TX_PIN,
+        .rx_pin    = AIOT_LINK_RX_PIN,
+        .baud_rate = AIOT_LINK_BAUD,
+        .greeting  = AIOT_LINK_GREETING,
+        .period_ms = AIOT_LINK_PERIOD_MS,
+        .task_core = 0,
+    };
+    esp_err_t link_err = Enlace_AIoT_Start(&link_cfg);
+    if (link_err != ESP_OK) {
+        ESP_LOGE(TAG, "UART link not started: %s", esp_err_to_name(link_err));
+    }
+#endif
 
     esp_err_t err = Adquisicion_AIoT_Init();
     if (err != ESP_OK) {
